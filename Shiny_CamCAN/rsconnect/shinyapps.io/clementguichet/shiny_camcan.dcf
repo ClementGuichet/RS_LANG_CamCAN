@@ -1,0 +1,11 @@
+name: shiny_camcan
+title:
+username:
+account: clementguichet
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8057854
+bundleId: 6754840
+url: https://clementguichet.shinyapps.io/shiny_camcan/
+when: 1674212278.9039
+lastSyncTime: 1674212278.90391
