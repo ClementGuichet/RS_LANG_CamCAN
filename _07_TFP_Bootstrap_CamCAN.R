@@ -46,11 +46,10 @@ bootstrap_ci <- function(n_boot, epsilon) {
     summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
   # Geom Mean per Age group
   geometric_group_boot <<- resamples %>% group_by(n_data_boot, Age_group) %>% 
-    summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
-    ungroup()
+    summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
   
   # Log ratios
-  final_results <<- geometric_group_boot %>% 
+  final_results <<- geometric_group_boot %>% group_by(Age_group) %>% 
     mutate(Connector = log(Connector / geometric_all_boot$Connector)) %>% 
     mutate(Provincial = log(Provincial / geometric_all_boot$Provincial)) %>%
     mutate(Satellite = log(Satellite / geometric_all_boot$Satellite)) %>%
@@ -70,7 +69,7 @@ bootstrap_ci <- function(n_boot, epsilon) {
   write.csv(summary_bootstrap, "summary_bootstrap.csv")
 }
 
-bootstrap_ci(10000, 1e-1)
+bootstrap_ci(1e4, 1e-1)
 
 ##########################################################################################
 # Bootstrap results visualization
