@@ -9,7 +9,7 @@ source("_geometricmeanCruz.R")
 palette <- RColorBrewer::brewer.pal(3, "YlOrRd")
 
 # Ratio of the proportion of each functional role within each RSN between the two selected clusters
-interaction_Age_FuncRole_RSN <- function(max, min, alpha, RSN_modular, RSN_interareal, epsilon, round) {
+interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modular, RSN_interareal, epsilon, round) {
   # Get the associated Resting-state networks for all age groups
   tmp_cluster_1 <- data_functional_role
   # Hub region specific to each subject yielded by hub detection procedure
@@ -85,16 +85,16 @@ interaction_Age_FuncRole_RSN <- function(max, min, alpha, RSN_modular, RSN_inter
       column_to_rownames(var = "Age_group")
     
     radarplotting_overlap(radar_plot, max, min, 1, 1,
-                          alpha = .1, label_size = 1, round = TRUE,
+                          alpha = .1, label_size = 1, round = round,
                           title_fill = paste0(title),
                           palette = palette
     )
     
-    legend(
-      x = "bottomleft", legend = rownames(radar_plot), horiz = TRUE,
-      bty = "n", pch = 20, col = palette,
-      text.col = "black", cex = 1, pt.cex = 2
-    )
+    # legend(
+    #   x = "bottomleft", legend = rownames(radar_plot), horiz = TRUE,
+    #   bty = "n", pch = 20, col = palette,
+    #   text.col = "black", cex = 1, pt.cex = 2
+    # )
   }
   
   ##############################################################################
@@ -156,17 +156,17 @@ interaction_Age_FuncRole_RSN <- function(max, min, alpha, RSN_modular, RSN_inter
       remove_rownames() %>%
       column_to_rownames(var = "Age_group")
     
-    radarplotting_overlap(radar_plot, max, min, 1, 1,
-                          alpha = .1, label_size = 1, round = TRUE,
+    radarplotting_overlap(radar_plot, max2, min2, 1, 1,
+                          alpha = alpha, label_size = 1, round = round,
                           title_fill = paste0(title),
                           palette = palette
     )
     
-    legend(
-      x = "bottomleft", legend = rownames(radar_plot), horiz = TRUE,
-      bty = "n", pch = 20, col = palette,
-      text.col = "black", cex = 1, pt.cex = 2
-    )
+    # legend(
+    #   x = "bottomleft", legend = rownames(radar_plot), horiz = TRUE,
+    #   bty = "n", pch = 20, col = palette,
+    #   text.col = "black", cex = 1, pt.cex = 2
+    # )
   }
 }
 
@@ -178,11 +178,11 @@ interaction_Age_FuncRole_RSN <- function(max, min, alpha, RSN_modular, RSN_inter
 # RSN to be displayed -- either "All" or specify the RSN with | for separation
 # Choose round = FALSE if scores have decimal points
 
-interaction_Age_FuncRole_RSN(1, -1, 0.1,
+interaction_Age_FuncRole_RSN(.8, -1.4, 0.6, -0.5, 0.1,
                              RSN_modular = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              RSN_interareal = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              epsilon = 1e-1,
-                             round = TRUE
+                             round = FALSE
 )
 
 

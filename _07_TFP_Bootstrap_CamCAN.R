@@ -5,7 +5,7 @@ library(introdataviz)
 # Bootstrapping procedure to compute confidence intervals of log-ratios
 ##########################################################################################
 
-# The geometric mean of each behavior (%) in all  clusters are computed
+# The geometric mean of each behavior (%) in all clusters is computed
 # The log-ratio of geometric means relative to that of the group is computed
 # First, 1000 virtual data sets are drawn with replacement from the source population and of the same size.
 # That, for each of Age group, we take 1000 resample with replacement
