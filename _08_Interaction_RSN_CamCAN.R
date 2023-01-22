@@ -126,11 +126,11 @@ interaction_Age_FuncRole_RSN <- function(max, min, alpha, RSN_modular, RSN_inter
     group_by(`1st_network`) %>%
     summarise_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), funs(geomMeanExtension(., epsilon = 1e-1)))
   
-  delta_proportion_interareal <<- trajectory_modular %>% group_by(Age_group) %>% 
-    mutate(Connector = log(Global_Bridge / geometric_trajectory_modular$Global_Bridge)) %>%
-    mutate(Provincial = log(Local_Bridge / geometric_trajectory_modular$Local_Bridge)) %>%
-    mutate(Satellite = log(Super_Bridge / geometric_trajectory_modular$Super_Bridge)) %>%
-    mutate(Peripheral = log(Not_a_Bridge / geometric_trajectory_modular$Not_a_Bridge)) %>%
+  delta_proportion_interareal <<- trajectory_interareal %>% group_by(Age_group) %>% 
+    mutate(Global_Bridge = log(Global_Bridge / geometric_trajectory_interareal$Global_Bridge)) %>%
+    mutate(Local_Bridge = log(Local_Bridge / geometric_trajectory_interareal$Local_Bridge)) %>%
+    mutate(Super_Bridge = log(Super_Bridge / geometric_trajectory_interareal$Super_Bridge)) %>%
+    mutate(Not_a_Bridge = log(Not_a_Bridge / geometric_trajectory_interareal$Not_a_Bridge)) %>%
     pivot_longer(cols = !c("1st_network", "Age_group"), names_to = "Bridgeness", values_to = "delta_freq")
   
   
