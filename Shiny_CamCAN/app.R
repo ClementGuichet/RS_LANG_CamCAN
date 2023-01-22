@@ -24,7 +24,7 @@ ui <- fluidPage(
       width = 4,
       p("Explore the most likely topological reconfiguration trajectory"),
       checkboxInput("dark_mode", "Dark mode", value = FALSE),
-      p("Visit", em(a("github.com/ClementGuichet/RestingState_LANG_Connectome", href = "https://github.com/ClementGuichet/RestingState_LANG_Connectome")), "for more information"),
+      p("Visit", em(a("github.com/ClementGuichet/RS_LANG_CamCAN", href = "https://github.com/ClementGuichet/RS_LANG_CamCAN")), "for more information"),
       checkboxGroupInput("RSN_choice",
         h4("Pick resting-state networks"),
         choices = list(

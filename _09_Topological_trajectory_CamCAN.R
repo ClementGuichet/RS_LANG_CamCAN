@@ -13,7 +13,7 @@ trajectory <- function(composition, list_RSN, threshold) {
   tmp_cluster_1 <- data_functional_role
   # Hub region specific to each subject yielded by hub detection procedure
   data_hub_selection_per_subject <- rbindlist(Hub_selection)
-  tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_post_clustering %>%
+  tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_TFP_analysis %>%
     dplyr::select(Subj_ID, Age_group),
   by = "Subj_ID"
   )
