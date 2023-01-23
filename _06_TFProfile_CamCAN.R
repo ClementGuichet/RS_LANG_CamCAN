@@ -118,30 +118,7 @@ data_cluster_selection <- function(cluster1, cluster2) {
 data_cluster_selection("Young", "Old")
 
 
-# LDA ----
-# library(MASS)
-# set.seed(1)
-# data_LDA <- cbind(data_cluster, data_TFP_analysis[,13]) %>% as.data.frame()
-# sample <- sample(c(TRUE, FALSE), nrow(data_LDA), replace = TRUE, prob = c(.8, .2))
-# train <- data_LDA[sample, ]
-# test <- data_LDA[!sample, ]
-#
-#
-# model <- qda(Age_group~., data = train)
-# model
-#
-# predicted <- predict(model, test)
-# predicted$class
-#
-# mean(predicted$class==test$Age_group)
-#
-# #define data to plot
-# lda_plot <- cbind(train, predict(model)$x)
-#
-# #create plot
-# ggplot(lda_plot, aes(LD1, LD2)) +
-#   geom_point(aes(color = Age_group), size = 2) +
-#   theme_pubclean()
+
 
 
 ################################################################################
