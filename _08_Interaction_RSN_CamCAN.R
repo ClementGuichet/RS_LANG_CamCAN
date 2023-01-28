@@ -1,7 +1,6 @@
 ################################################################################
 # LOG-RATIO of the Topologico-functional profile at the RSN level --------------
 ################################################################################
-
 source("_06_TFProfile_CamCAN.R")
 source("_radarplotting_function.R")
 source("_geometricmeanCruz.R")
@@ -11,7 +10,6 @@ palette <- RColorBrewer::brewer.pal(3, "YlOrRd")
 # Ratio of the proportion of each functional role within each RSN between the two selected clusters
 interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modular, RSN_interareal, epsilon, round) {
   # Get the associated Resting-state networks for all age groups
-  tmp_cluster_1 <- data_functional_role
   # Hub region specific to each subject yielded by hub detection procedure
   data_hub_selection_per_subject <- rbindlist(Hub_selection)
   tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_TFP_analysis %>%
@@ -40,7 +38,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
     group_by(`1st_network`, Subj_ID, Age_group) %>%
     summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>% 
     group_by(`1st_network`, Age_group) %>%
-    summarise_at(vars(Connector, Provincial, Satellite, Peripheral), funs(geomMeanExtension(., epsilon = 1e-1)))
+    summarise_at(vars(Connector, Provincial, Satellite, Peripheral), funs(geomMeanExtension(., epsilon = epsilon)))
 
   geometric_trajectory_modular <<- tmp_cluster_final %>%
     group_by(`1st_network`, Region, Subj_ID, Age_group, Hub_consensus) %>%
@@ -52,7 +50,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
     group_by(`1st_network`, Subj_ID, Age_group) %>%
     summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>%
     group_by(`1st_network`) %>%
-    summarise_at(vars(Connector, Provincial, Satellite, Peripheral), funs(geomMeanExtension(., epsilon = 1e-1)))
+    summarise_at(vars(Connector, Provincial, Satellite, Peripheral), funs(geomMeanExtension(., epsilon = epsilon)))
   
   delta_proportion_modular <<- trajectory_modular %>% group_by(Age_group) %>% 
     mutate(Connector = log(Connector / geometric_trajectory_modular$Connector)) %>%
@@ -112,7 +110,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
     group_by(`1st_network`, Subj_ID, Age_group) %>%
     summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>% 
     group_by(`1st_network`, Age_group) %>%
-    summarise_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), funs(geomMeanExtension(., epsilon = 1e-1)))
+    summarise_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
   
   geometric_trajectory_interareal <<- tmp_cluster_final %>%
     group_by(`1st_network`, Region, Subj_ID, Age_group, Bridgeness) %>%
@@ -124,7 +122,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
     group_by(`1st_network`, Subj_ID, Age_group) %>%
     summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>%
     group_by(`1st_network`) %>%
-    summarise_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), funs(geomMeanExtension(., epsilon = 1e-1)))
+    summarise_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
   
   delta_proportion_interareal <<- trajectory_interareal %>% group_by(Age_group) %>% 
     mutate(Global_Bridge = log(Global_Bridge / geometric_trajectory_interareal$Global_Bridge)) %>%
@@ -178,7 +176,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
 # RSN to be displayed -- either "All" or specify the RSN with | for separation
 # Choose round = FALSE if scores have decimal points
 
-interaction_Age_FuncRole_RSN(.8, -1.4, 0.6, -0.5, 0.1,
+interaction_Age_FuncRole_RSN(0.5, -0.5, 0.5, -0.5, 0.1,
                              RSN_modular = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              RSN_interareal = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              epsilon = 1e-1,

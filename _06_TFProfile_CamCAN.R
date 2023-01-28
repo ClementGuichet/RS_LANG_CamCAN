@@ -4,10 +4,6 @@
 # Written by CG
 # 13-12-2022
 ##########################################################################################
-library(rstatix)
-library(ggpubr)
-library(factoextra)
-
 source("_05_Hub_detection_CamCAN.R")
 source("_radarplotting_function.R")
 source("_geometricmeanCruz.R")
@@ -16,7 +12,7 @@ source("_geometricmeanCruz.R")
 # Investigating the evolution of graph-based metrics ----
 ################################################################################
 
-TFP_General %>%
+TFP_General %>%  
   dplyr::select(Subj_ID, Age, Connector, Provincial, Peripheral, Satellite) %>%
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
@@ -29,7 +25,7 @@ TFP_General %>%
   theme_pubclean() +
   ggtitle("Evolution of modular functional roles across adult lifespan")
 
-TFP_General %>%
+TFP_General %>% 
   dplyr::select(Subj_ID, Age, Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
@@ -44,7 +40,7 @@ TFP_General %>%
 
 ################################################################################
 
-data_TFP_analysis <- TFP_General %>%
+data_TFP_analysis <- TFP_General %>% 
   filter(Age != "NaN") %>%
   plyr::rename(c("gender_text" = "Gender")) %>%
   mutate(Age_group = ifelse(Age <= 39, "Young", ifelse(Age > 59, "Old", "Middle")))
@@ -127,7 +123,7 @@ data_cluster_selection("Young", "Old")
 
 data_box <- data_TFP_analysis %>%
   pivot_longer(
-    cols = !c("Subj_ID", "Gender", "Age", "Age_group"),
+    cols = !c("Subj_ID", "Gender", "Age", "Age_group", "Eglob", "Eloc"),
     names_to = "Metrics",
     values_to = "Metric_value"
   ) %>%
@@ -140,30 +136,30 @@ data_box$Metrics <- factor(data_box$Metrics, levels = c(
 ))
 
 
-# data_box_sig <- data_box %>%
-#   group_by(Metrics) %>%
-#   rstatix::t_test(Metric_value ~ Age_group) %>%
-#   adjust_pvalue(method = "fdr") %>%
-#   add_significance("p.adj") %>%
-#   add_xy_position(x = "Metrics")
+data_box_sig <- data_box %>%
+  group_by(Metrics) %>%
+  rstatix::t_test(Metric_value ~ Age_group, ref.group = "Old") %>%
+  adjust_pvalue(method = "fdr") %>%
+  add_significance("p.adj") %>%
+  add_xy_position(x = "Metrics")
 
 ggplot(data_box, aes(x = Metrics, y = Metric_value)) +
   geom_boxplot(aes(fill = Age_group)) +
   scale_fill_brewer(palette = "YlOrRd") +
-  theme_pubr()
-# stat_pvalue_manual(data_box_sig,
-#   label = "p.adj.signif",
-#   tip.length = 0.01,
-#   hide.ns = TRUE,
-#   bracket.nudge.y = -5
-# )
+  theme_pubr() +
+  stat_pvalue_manual(data_box_sig,
+  label = "p.adj.signif",
+  tip.length = 0.01,
+  hide.ns = TRUE,
+  bracket.nudge.y = -5
+)
 
-# data_box_eff_size <- data_box %>%
-#   group_by(Metrics) %>%
-#   rstatix::cohens_d(Metric_value ~ Age_group, comparison = list(c("Young", "Old")), paired = FALSE, hedges.correction = TRUE) %>%
-#   mutate(effsize = effsize * (-1))
-# # filter(magnitude != "negligible")
-#
+data_box_eff_size <- data_box %>%
+  group_by(Metrics) %>%
+  rstatix::cohens_d(Metric_value ~ Age_group, comparison = list(c("Young", "Old")), paired = FALSE, hedges.correction = TRUE) %>%
+  mutate(effsize = effsize * (-1))
+# filter(magnitude != "negligible")
+
 # ggdotchart(
 #   data_box_eff_size,
 #   x = "Metrics", y = "effsize",
@@ -177,39 +173,37 @@ ggplot(data_box, aes(x = Metrics, y = Metric_value)) +
 
 
 library(lme4)
-source("PRE.R")
 mod <- lm(Balance_eff ~ Age, data_TFP_analysis)
 mod %>% summary(.)
-effectsize::eta_squared(mod, partial = TRUE, alternative = "greater")
+effectsize::eta_squared(mod, partial = TRUE, alternative = "less")
 
-cor.test(TFP_General$Age, TFP_General$Balance_eff)
+cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)
 # Balance Integration/Segregation
-plot(TFP_General$Age, TFP_General$Balance_eff, pch = 19, col = "darkblue")
+plot(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff, pch = 19, col = "darkblue")
 # Regression line
-abline(lm(TFP_General$Balance_eff ~ TFP_General$Age), col = "red", lwd = 3)
+abline(lm(data_TFP_analysis$Balance_eff ~ data_TFP_analysis$Age), col = "red", lwd = 3)
 # Pearson correlation
 text(paste(
-  "Correlation between Age and I/S Balance (t(642) = -4.55, p < .001):",
-  round(cor.test(TFP_General$Age, TFP_General$Balance_eff)$estimate, 2)
-), x = 35, y = 6)
+  "Correlation between Age and I/S Balance (t(564) = -7.62, p < .001):",
+  round(cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)$estimate, 2)
+), x = 39, y = 6.5)
 
 
-cor_efficiency <- data_functional_role %>%
+cor_efficiency <- data_TFP_analysis %>%
   dplyr::select(Subj_ID, Age, Eglob, Eloc) %>%
   group_by(Age) %>%
-  summarize_at(vars(Eglob, Eloc), mean) %>%
-  mutate(Age_quadratic = Age^2)
+  summarize_at(vars(Eglob, Eloc), mean)
 
-cor.test(cor_efficiency$Age, cor_efficiency$Eloc)
+cor.test(cor_efficiency$Age, cor_efficiency$Eglob)
 # Balance Integration/Segregation
-plot(cor_efficiency$Age, cor_efficiency$Eloc, pch = 19, col = "darkblue")
+plot(cor_efficiency$Age, cor_efficiency$Eglob, pch = 19, col = "darkblue")
 # Regression line
-abline(lm(cor_efficiency$Eloc ~ cor_efficiency$Age), col = "red", lwd = 3)
+abline(lm(cor_efficiency$Eglob ~ cor_efficiency$Age), col = "red", lwd = 3)
 # Pearson correlation
 text(paste(
-  "Correlation between Age and Local efficiency:",
-  round(cor.test(cor_efficiency$Age, cor_efficiency$Eloc)$estimate, 2)
-), x = 35, y = 0.675)
+  "Correlation between Age and Global efficiency:",
+  round(cor.test(cor_efficiency$Age, cor_efficiency$Eglob)$estimate, 2)
+), x = 73, y = 0.515)
 
 ################################################################################
 # Topologico-functional profile across clusters  -------------------------------
@@ -240,7 +234,7 @@ Radar_functional_role_geometric_age <- data_TFP_analysis %>%
 
 palette <- RColorBrewer::brewer.pal(3, "YlOrRd")
 
-radarplotting_overlap(Radar_functional_role_geometric_age, 0.4, -0.4, 1, 1,
+radarplotting_overlap(Radar_functional_role_geometric_age, 0.12, -0.12, 1, 1,
   alpha = 0.1, label_size = 1, round = FALSE,
   title_fill = "Lifespan Topologico-functional profile (log ratio of geometric means)",
   palette = palette
@@ -261,7 +255,7 @@ Radar_functional_role_age <- data_TFP_analysis %>%
   remove_rownames() %>%
   column_to_rownames(var = "Age_group")
 
-radarplotting_overlap(Radar_functional_role_age, 50, 10, 1, 1,
+radarplotting_overlap(Radar_functional_role_age, 50, 0, 1, 1,
   alpha = 0.1, label_size = 1,
   title_fill = "Profile expressed in relative proportions",
   palette = palette
@@ -274,57 +268,11 @@ legend(
   text.col = "black", cex = 1, pt.cex = 2
 )
 
-# Globalisation & Stabilization ----
-
-
-# glob <- data_TFP_analysis %>%
-#   dplyr::select(-Age) %>%
-#   filter(grepl("Young|Middle", Age_group)) %>%
-#   group_by(Age_group) %>%
-#   summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = 1e-1))) %>%
-#   t(.) %>%
-#   as.data.frame() %>%
-#   janitor::row_to_names(1) %>%
-#   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
-#   mutate(Globalisation = log(Middle / Young)) %>%
-#   dplyr::select(Globalisation) %>%
-#   t(.) %>%
-#   as.data.frame() %>%
-#   dplyr::select(-Satellite)
-# 
-# radarplotting(glob, 0.4, -0.4, 1, 1,
-#   alpha = 0.1, label_size = 1, round = FALSE,
-#   palette = "orange"
-# )
-# 
-# periph <- data_TFP_analysis %>%
-#   dplyr::select(-Age) %>%
-#   filter(grepl("Old|Middle", Age_group)) %>%
-#   group_by(Age_group) %>%
-#   summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = 1e-1))) %>%
-#   t(.) %>%
-#   as.data.frame() %>%
-#   janitor::row_to_names(1) %>%
-#   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
-#   mutate(Stabilisation = log(Old / Middle)) %>%
-#   dplyr::select(Stabilisation) %>%
-#   t(.) %>%
-#   as.data.frame() %>%
-#   dplyr::select(-Satellite)
-# 
-# radarplotting(periph, 0.4, -0.4, 1, 1,
-#   alpha = 0.1, label_size = 1, round = FALSE,
-#   palette = "red"
-# )
-
 
 ################################################################################
 # QUALITY CHECK -------------
 ################################################################################
 # Distribution of hubs across RSNs for each cluster for the individual hubs ----
-
-# First averaging per subject then per clusters because grand mean is not equal to mean of means
-# with unequal sample size i.e., subjects have a different total number of hubs
 
 # data_cluster_selection("Young", "Old")
 # 

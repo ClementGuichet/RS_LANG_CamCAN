@@ -102,8 +102,8 @@ plot_ci <- function(functional_role, rain_height) {
     # adjust layout
     scale_x_discrete(name = "", expand = c(rain_height*3, 0, 0, 0.7)) +
     scale_y_continuous(name = "Log ratios to the geometric mean",
-                       breaks = seq(-0.4, 0.4, 0.1), 
-                       limits = c(-0.3, 0.3)) +
+                       breaks = seq(-0.2, 0.2, 0.1), 
+                       limits = c(-0.2, 0.2)) +
     geom_hline(yintercept = 0, color = "red", linewidth = 1) +
     coord_flip() +
     facet_wrap(~Functional_role,

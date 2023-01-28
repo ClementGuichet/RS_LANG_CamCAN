@@ -2,6 +2,7 @@ source("_06_TFProfile_CamCAN.R")
 source("_radarplotting_function.R")
 source("_geometricmeanCruz.R")
 
+library(gbmt)
 ################################################################################
 ################################################################################
 ################################################################################
@@ -9,6 +10,8 @@ source("_geometricmeanCruz.R")
 ################################################################################
 ################################################################################
 ################################################################################
+
+epsilon <- 1e-1
 
 # Get the TFP for the first temporal segment
 trajectory_YM_modular <- tmp_cluster_final %>%
@@ -24,7 +27,7 @@ trajectory_YM_modular <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Hub_consensus", values_to = "freq") %>%
   group_by(`1st_network`, Age_group, Hub_consensus) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1)))
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
 
 trajectory_YM_interareal <- tmp_cluster_final %>%
   filter(grepl("Young|Middle", Age_group)) %>% 
@@ -39,7 +42,7 @@ trajectory_YM_interareal <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Bridgeness", values_to = "freq") %>%
   group_by(`1st_network`, Age_group, Bridgeness) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1)))
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
 
 
 traj_YM <- trajectory_YM_modular %>%
@@ -62,7 +65,7 @@ trajectory_MO_modular <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Hub_consensus", values_to = "freq") %>%
   group_by(`1st_network`, Age_group, Hub_consensus) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1)))
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
 
 trajectory_MO_interareal <- tmp_cluster_final %>%
   filter(grepl("Old", Age_group)) %>% 
@@ -77,7 +80,7 @@ trajectory_MO_interareal <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Bridgeness", values_to = "freq") %>%
   group_by(`1st_network`, Age_group, Bridgeness) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1)))
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
 
 traj_MO <- trajectory_MO_modular %>%
   spread(Hub_consensus, freq) %>%
@@ -102,7 +105,7 @@ geometric_all_modular <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Hub_consensus", values_to = "freq") %>%
   group_by(`1st_network`, Hub_consensus) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1))) %>% 
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
   spread(Hub_consensus, freq)
 
 geometric_all_interareal <- tmp_cluster_final %>% 
@@ -117,7 +120,7 @@ geometric_all_interareal <- tmp_cluster_final %>%
   ungroup() %>%
   pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_group"), names_to = "Bridgeness", values_to = "freq") %>%
   group_by(`1st_network`, Bridgeness) %>%
-  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = 1e-1))) %>% 
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
   spread(Bridgeness, freq)
 
 geometric_all <- merge(geometric_all_modular, geometric_all_interareal) %>% group_by(`1st_network`)
@@ -136,12 +139,11 @@ gbmt_rsn <- traj_global %>%
                             ifelse(Age_group == "Middle", 2,
                                    3
                             )
-  ))
+  )) %>% filter(`1st_network` != "VMM")
 
 
 # https://journals.sagepub.com/doi/10.1177/0962280216673085
-library(gbmt)
-set.seed(5)
+set.seed(1)
 mod <- gbmt::gbmt(
   x.names = c(
     "Connector", "Provincial", "Satellite", "Peripheral",
@@ -155,27 +157,6 @@ mod <- gbmt::gbmt(
   ng = 5,
   d = 2
 )
-
-# Restart 10 - EM iteration 1. Log likelihood: 1411.5573 
-# > mod$assign.list
-# $`1`
-# [1] "DAN"      "Language" "Visual_2"
-# 
-# $`2`
-# [1] "SMN"      "Visual_1"
-# 
-# $`3`
-# [1] "DMN" "FPN"
-# 
-# $`4`
-# [1] "PMM" "VMM"
-# 
-# $`5`
-# [1] "Auditory" "CON"     
-# 
-# > mod$ic
-# aic        bic       caic      ssbic       hqic 
-# -1406.9764 -1026.8634  -772.8634 -1819.1436 -1279.0799 
 
 mod$assign.list
 mod$ic
@@ -220,7 +201,7 @@ stability <- function(start, i) {
     stable_groups <<- cbind(stable_groups, tmp_grouping) %>% as.data.frame()
   }
 }
-stability(1, 1000)
+stability(1, 100)
 
 
 consensus_grouping <- stable_groups %>%
@@ -228,9 +209,9 @@ consensus_grouping <- stable_groups %>%
   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
   as.data.frame()
 
-write.csv(consensus_grouping, "consensus_grouping_1000.csv")
+write.csv(consensus_grouping, "consensus_GBMT_grouping_28012023_OMST_100iter.csv")
 
-consensus_grouping <- read.csv("consensus_grouping_1000.csv") %>%
+consensus_grouping <- read.csv("consensus_GBMT_grouping_28012023_OMST_100iter.csv") %>%
   as.data.frame() %>% remove_rownames() %>% tibble::column_to_rownames("X")
 
 
@@ -297,7 +278,6 @@ computeDistribution <- function(cons.mat) {
 }
 computeDistribution(output$norm.mat)
 
-library(d3heatmap)
 heatmap(output$count.mat, verbose = TRUE)
 
 plot_cluster <- cluster::agnes(1-norm_pairs, method = "ward", metric = "euclidian")
@@ -311,30 +291,29 @@ factoextra::fviz_dend(plot_cluster,
 )
 
 # LDA ----
-library(MASS)
-set.seed(1)
-data_LDA <- gbmt_rsn %>% dplyr::select(-`1st_network`)
-sample <- sample(c(TRUE, FALSE), nrow(data_LDA), replace = TRUE, prob = c(.8, .2))
-train <- data_LDA[sample, ]
-test <- data_LDA[!sample, ]
-
-
-model <- lda(Age_group~., data = train)
-model
-
-predicted <- predict(model, test)
-predicted$class
-
-mean(predicted$class==test$Age_group)
-
-lda_coef <- model$scaling %>% as.data.frame() %>% mutate(names = rownames(.)) %>% arrange(LD1, LD2)
-#define data to plot
-lda_plot <- cbind(train, predict(model)$x)
-
-#create plot
-ggplot(lda_plot, aes(LD1, LD2)) +
-  geom_point(aes(color = Age_group), size = 4) +
-  theme_pubclean()
+# set.seed(1)
+# data_LDA <- gbmt_rsn
+# sample <- sample(c(TRUE, FALSE), nrow(data_LDA), replace = TRUE, prob = c(.8, .2))
+# train <- data_LDA[sample, ]
+# test <- data_LDA[!sample, ]
+# 
+# 
+# model <- lda(Age_group~., data = train)
+# model
+# 
+# predicted <- predict(model, test)
+# predicted$class
+# 
+# mean(predicted$class==test$Age_group)
+# 
+# lda_coef <- model$scaling %>% as.data.frame() %>% mutate(names = rownames(.)) %>% arrange(LD1, LD2)
+# #define data to plot
+# lda_plot <- cbind(train, predict(model)$x)
+# 
+# #create plot
+# ggplot(lda_plot, aes(LD1, LD2)) +
+#   geom_point(aes(color = Age_group), size = 4) +
+#   theme_pubclean()
 
 ################################################################################
 ################################################################################

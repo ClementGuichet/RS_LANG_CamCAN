@@ -10,7 +10,6 @@ source("_06_TFProfile_CamCAN.R")
 
 trajectory <- function(composition, list_RSN, threshold) {
   # Get the associated Resting-state networks for all age groups
-  tmp_cluster_1 <- data_functional_role
   # Hub region specific to each subject yielded by hub detection procedure
   data_hub_selection_per_subject <- rbindlist(Hub_selection)
   tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_TFP_analysis %>%
@@ -257,7 +256,6 @@ trajectory <- function(composition, list_RSN, threshold) {
   ############################################################################
   # ALLUVIAL PLOT
   ############################################################################
-  
   library(ggalluvial)
   if (composition == "modular") {
     display_cluster <- Cond_PMF_final %>%
@@ -306,7 +304,7 @@ trajectory <- function(composition, list_RSN, threshold) {
   }
 }
 
-trajectory("interareal", "Language", 0)
+trajectory("modular", "All", 2.5)
 
 ############################################################################
 # Easter egg :)

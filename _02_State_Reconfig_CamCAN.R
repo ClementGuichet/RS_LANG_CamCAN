@@ -9,11 +9,7 @@
 # I compute the proportion using the results yielded by our network overlap calculator from the ImCalc method
 # The certainty factor corresponds to the percentage of overlap between a region and the highest corresponding network
 ################################################################################
-library(tidyverse)
-library(ggpubr)
 library(ggalluvial)
-
-rm(list = ls())
 ##########################################################################################
 # Import processed data------------------------------------------------------------------
 source("_01_DataManip_CamCAN.R")
@@ -43,19 +39,20 @@ custom_palette <- c(
 ################################################################################
 
 # Keeping a 131 row-dataframe
-data_131 <- data_full_per_region %>% subset(threshold == "0.15")
+data_131 <- data_full_per_region 
+# %>% subset(threshold == "0.15")
 
 # NMI & AMI
-NMI_func(factor(data_131$LANG_Net_assign), factor(data_131$Consensus_vector_0.15))
-AMI_func(factor(data_131$LANG_Net_assign), factor(data_131$Consensus_vector_0.15))
+NMI_func(factor(data_131$LANG_Net_assign), factor(data_131$Consensus_OMST_all))
+AMI_func(factor(data_131$LANG_Net_assign), factor(data_131$Consensus_OMST_all))
 
 # Contingency table
-addmargins(table(data_131$Consensus_vector_0.15, data_131$LANG_Net_assign))
+addmargins(table(data_131$Consensus_OMST_all, data_131$LANG_Net_assign))
 
 # Create alluvial diagram between the two community structures
 
 data_alluvial_community <- data_131 %>%
-  dplyr::select(LANG_Net_assign, Consensus_vector_0.15, Region) %>%
+  dplyr::select(LANG_Net_assign, Consensus_OMST_all, Region) %>%
   mutate(LANG_Net_assign = ifelse(LANG_Net_assign == "1", "Encoding-Decoding",
     ifelse(LANG_Net_assign == "2", "Control-Executive",
       ifelse(LANG_Net_assign == "3", "Abstract-Conceptual",
@@ -63,16 +60,16 @@ data_alluvial_community <- data_131 %>%
       )
     )
   )) %>%
-  mutate(Consensus_vector_0.15 = ifelse(Consensus_vector_0.15 == "1", "RS-NET 1",
-    ifelse(Consensus_vector_0.15 == "2", "RS-NET 2",
-      ifelse(Consensus_vector_0.15 == "3", "RS-NET 3",
-        ifelse(Consensus_vector_0.15 == "4", "RS-NET 4",
+  mutate(Consensus_OMST_all = ifelse(Consensus_OMST_all == "1", "RS-NET 1",
+    ifelse(Consensus_OMST_all == "2", "RS-NET 2",
+      ifelse(Consensus_OMST_all == "3", "RS-NET 3",
+        ifelse(Consensus_OMST_all == "4", "RS-NET 4",
           "RS-NET 5"
         )
       )
     )
   )) %>%
-  plyr::rename(c("Consensus_vector_0.15" = "RS-Nets")) %>%
+  plyr::rename(c("Consensus_OMST_all" = "RS-Nets")) %>%
   plyr::rename(c("LANG_Net_assign" = "LANG Nets")) %>%
   pivot_longer(
     cols = c("LANG Nets", "RS-Nets"),
@@ -109,3 +106,4 @@ alluvial_community <- ggplot(
   theme_pubclean()
 
 alluvial_community
+

@@ -1,28 +1,22 @@
-library(tidyverse)
-library(janitor)
-library(plyr)
-library(readxl)
-library(car)
-library(Rmisc)
-library(tidylog)
-library(plotly)
-library(jsonlite)
-
-rm(list = ls())
-
 # Import processed data---------------------------------------------------------
 source("_01_DataManip_CamCAN.R")
 
 ################################################################################
+library(plotly)
+
+setwd(paste0(getwd(), "/OMST"))
 listfile_components <- list.files(getwd(), pattern = "*.txt")[grep("components", list.files(getwd(), pattern = "*.txt"))]
-n_subj <- 645
+
+n_subj <- 628
 n_threshold <- 5
 
 components <- ldply(listfile_components, read.table, header = T, sep = "\t") %>%
-  mutate(threshold = rep(c(.1, .12, .15, .17, .2), each = n_subj)) %>%
-  relocate(threshold, .after = (X)) %>%
+  mutate(threshold = rep("OMST")) %>% 
+  # mutate(threshold = rep(c(.1, .12, .15, .17, .2), each = n_subj)) %>%
+  # relocate(threshold, .after = (X)) %>%
   plyr::rename(c("X" = "Subj_ID")) %>%
-  replace("Subj_ID", rep(seq_len(n_subj), times = n_threshold)) %>%
+  replace("Subj_ID", rep(seq_len(n_subj))) %>%
+  # replace("Subj_ID", rep(seq_len(n_subj), times = n_threshold)) %>%
   pivot_longer(
     cols = !c("Subj_ID", "threshold"),
     names_to = "Region",
@@ -43,10 +37,12 @@ LLC <- components %>%
 data_full_per_subject_LLC <- merge(data_full_per_subject, LLC, by = "threshold") %>%
   arrange(Subj_ID, threshold)
 
+setwd(str_replace(getwd(), "\\/OMST", ""))
+
 # Evolution of Global metrics - what is the optimal threshold?
 evo <- data_full_per_subject_LLC %>%
   group_by(threshold) %>%
-  summarise_at(vars(Eglob, Clustering_coeff_glob, Eloc, `Largest Connected Component`, Q_consensus), funs(mean)) %>%
+  summarise_at(vars(Eglob, Clustering_coeff_glob, Eloc, `Largest Connected Component`), funs(mean)) %>%
   pivot_longer(
     cols = !c("threshold"),
     names_to = "Metrics"
@@ -90,3 +86,76 @@ f <- AMI_func(factor(data_AMI$Consensus_vector_0.2), factor(data_AMI$Consensus_v
 (c + d + e + f) / 5
 
 # 75% of AMI between the affiliation vectors at different thresholds
+
+
+# OMST overall FC correlation with age
+setwd(paste0(getwd(), "/OMST"))
+mean_cor <- as.data.frame(fromJSON("mean_cor.json")) %>%
+  mutate(Subj_ID = rep(seq_len(628)))
+setwd(str_replace(getwd(), "\\/OMST", ""))
+
+mean_cor_data <- merge(data_full_per_subject %>% 
+                         filter(threshold == "0.15") %>% 
+                         dplyr::select(Subj_ID, Age, Age_group),
+                       mean_cor,
+                       by = "Subj_ID"
+                       ) %>% 
+  rename(mean_FC = `fromJSON("mean_cor.json")`)
+
+mod <- lm(mean_FC~Age, data = mean_cor_data)
+summary(mod)
+performance::check_model(mod)
+performance::check_outliers(mod)
+effectsize::eta_squared(mod, partial = TRUE)
+
+cor.test(mean_cor_data$Age, mean_cor_data$mean_FC)
+# Balance Integration/Segregation
+plot(mean_cor_data$Age, mean_cor_data$mean_FC, pch = 19, col = "darkblue")
+# Regression line
+abline(lm(mean_cor_data$mean_FC ~ mean_cor_data$Age), col = "red", lwd = 3)
+
+# Young adults have a lower overall FC which mean that proportional thresholding select on average
+# correlation which have a higher probability of being spurious correlations and artificially inflate the network differences
+# (van den Heuvel, 2017)
+
+
+
+# setwd(paste0(getwd(), "/OMST"))
+# Eglob_OMST <- as.data.frame(fromJSON("Eglob.json")) %>%
+#   mutate(Subj_ID = rep(seq_len(628)))
+# setwd(str_replace(getwd(), "\\/OMST", ""))
+# 
+# Eglob_OMST_data <- merge(data_full_per_subject %>%  
+#                          dplyr::select(Subj_ID, Age, Age_group),
+#                        Eglob_OMST,
+#                        by = "Subj_ID"
+# ) %>% 
+#   rename(Eglob_OMST = `fromJSON("Eglob.json")`)
+# 
+# mod <- lm(Eglob_OMST~Age, data = Eglob_OMST_data)
+# summary(mod)
+
+setwd(paste0(getwd(), "/OMST"))
+cost_OMST <- as.data.frame(fromJSON("globalcosteff_max.json")) %>%
+  mutate(Subj_ID = rep(seq_len(628))) %>% 
+  rename(GE_Cost = `fromJSON("globalcosteff_max.json")`) %>% 
+  merge(., data_full_per_subject %>%
+          dplyr::select(Subj_ID, Age, Age_group), 
+        by = "Subj_ID")
+
+setwd(str_replace(getwd(), "\\/OMST", ""))
+
+mod <- lm(GE_Cost~Age, data = cost_OMST)
+summary(mod)
+performance::check_outliers(cost_OMST[1])
+
+cor.test(cost_OMST$Age, cost_OMST$GE_Cost)
+# Balance Integration/Segregation
+plot(cost_OMST$Age, cost_OMST$GE_Cost, pch = 19, col = "darkblue")
+# Regression line
+abline(lm(cost_OMST$GE_Cost ~ cost_OMST$Age), col = "red", lwd = 3)
+text(paste(
+  "Correlation between Age and max GE-Cost; t(626) = 5.9, p < .001:",
+  round(cor.test(cost_OMST$Age, cost_OMST$GE_Cost)$estimate, 2)
+), x = 65, y = 0.45)
+

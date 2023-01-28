@@ -4,16 +4,8 @@
 # Written by CG
 # 26-11-2022
 ##########################################################################################
-library(cluster)
-library(compositions)
-library(zCompositions)
-library(robCompositions)
-library(vegan)
-library(mvoutlier)
-library(mclust)
-library(fpc)
-library(factoextra)
-library(ggpubr)
+pacman::p_load("zCompositions", "compositions", "cluster", "robCompositions", "vegan", "mvoutlier",
+               "FactoMineR", "factoextra")
 
 source("_05_Hub_detection_CamCAN.R")
 
@@ -22,7 +14,7 @@ source("_05_Hub_detection_CamCAN.R")
 ###############################################################################
 
 data_coda_modular <- TFP_General %>%
-  dplyr::select(Connector, Satellite, Provincial, Peripheral) %>%
+  dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
   acomp(.) %>%
   # Preserves the ratios between non-zero components
   cmultRepl(., output = "prop")
@@ -86,9 +78,9 @@ robCODA <- robCompositions::pcaCoDa(data_CODA,
 summary(robCODA)
 biplot(robCODA,
        scale = 0,
-       xlabs = rep("o", 645),
+       xlabs = rep("o", 627),
        col = c("red", "black"),
-       xlim = c(-3, 3),
+       xlim = c(-2, 2),
        cex = c(0.5, 1),
        choices = c(1, 2)
 )
