@@ -1,8 +1,7 @@
 ##########################################################################################
 # Script for Age-related analyses and visualization for the topologico-functional profile
 
-# Written by CG
-# 13-12-2022
+# Written by CG - 2023
 ##########################################################################################
 source("_05_Hub_detection_CamCAN.R")
 source("_radarplotting_function.R")
@@ -38,6 +37,12 @@ TFP_General %>%
   theme_pubclean() +
   ggtitle("Evolution of interareal functional roles across adult lifespan")
 
+library(brms)
+mod <- lm(mvbind(Connector, Satellite, Provincial, Peripheral,
+                 Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
+          ~Age, 
+          data = TFP_General)
+summary(mod)
 ################################################################################
 
 data_TFP_analysis <- TFP_General %>% 
@@ -47,31 +52,31 @@ data_TFP_analysis <- TFP_General %>%
 
 data_TFP_analysis$Age_group <- factor(data_TFP_analysis$Age_group, levels = c("Young", "Middle", "Old"))
 
-data_TFP_analysis %>%
-  group_by(Age_group) %>%
-  get_summary_stats("Age", type = "full")
-
-data_TFP_analysis %>%
-  group_by(Age_group) %>%
-  count(Gender) %>%
-  mutate(n = prop.table(n))
-
-
-a <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Young"),
-  x = "Age", y = "..density..", bins = 10,
-  fill = "purple", add_density = TRUE
-) + theme_pubclean()
-b <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Middle"),
-  x = "Age", y = "..density..", bins = 10,
-  fill = "purple", add_density = TRUE
-)
-c <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Old"),
-  x = "Age", y = "..density..", bins = 15,
-  fill = "purple", add_density = TRUE
-) + theme_pubclean()
-
-
-Rmisc::multiplot(a, b, c)
+# data_TFP_analysis %>%
+#   group_by(Age_group) %>%
+#   get_summary_stats("Age", type = "full")
+# 
+# data_TFP_analysis %>%
+#   group_by(Age_group) %>%
+#   count(Gender) %>%
+#   mutate(n = prop.table(n))
+# 
+# 
+# a <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Young"),
+#   x = "Age", y = "..density..", bins = 10,
+#   fill = "purple", add_density = TRUE
+# ) + theme_pubclean()
+# b <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Middle"),
+#   x = "Age", y = "..density..", bins = 10,
+#   fill = "purple", add_density = TRUE
+# )
+# c <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Old"),
+#   x = "Age", y = "..density..", bins = 15,
+#   fill = "purple", add_density = TRUE
+# ) + theme_pubclean()
+# 
+# 
+# Rmisc::multiplot(a, b, c)
 
 
 # data_pca <- data_TFP_analysis %>% dplyr::select(-c("Subj_ID", "Gender", "Age", "Age_group", "Balance_eff"))
@@ -136,28 +141,30 @@ data_box$Metrics <- factor(data_box$Metrics, levels = c(
 ))
 
 
-data_box_sig <- data_box %>%
-  group_by(Metrics) %>%
-  rstatix::t_test(Metric_value ~ Age_group, ref.group = "Old") %>%
-  adjust_pvalue(method = "fdr") %>%
-  add_significance("p.adj") %>%
-  add_xy_position(x = "Metrics")
+# data_box_sig <- data_box %>%
+#   group_by(Metrics) %>%
+#   rstatix::t_test(Metric_value ~ Age_group) %>%
+#   adjust_pvalue(method = "fdr") %>%
+#   add_significance("p.adj") %>%
+#   add_xy_position(x = "Metrics")
 
 ggplot(data_box, aes(x = Metrics, y = Metric_value)) +
   geom_boxplot(aes(fill = Age_group)) +
   scale_fill_brewer(palette = "YlOrRd") +
-  theme_pubr() +
-  stat_pvalue_manual(data_box_sig,
-  label = "p.adj.signif",
-  tip.length = 0.01,
-  hide.ns = TRUE,
-  bracket.nudge.y = -5
-)
+  scale_y_continuous(limits = c(0, 50),
+                     breaks = seq(0, 50, 5)) +
+  theme_pubclean() 
+#   stat_pvalue_manual(data_box_sig,
+#   label = "p.adj.signif",
+#   tip.length = 0.01,
+#   hide.ns = TRUE,
+#   bracket.nudge.y = -5
+# ) 
 
-data_box_eff_size <- data_box %>%
-  group_by(Metrics) %>%
-  rstatix::cohens_d(Metric_value ~ Age_group, comparison = list(c("Young", "Old")), paired = FALSE, hedges.correction = TRUE) %>%
-  mutate(effsize = effsize * (-1))
+# data_box_eff_size <- data_box %>%
+#   group_by(Metrics) %>%
+#   rstatix::cohens_d(Metric_value ~ Age_group, comparison = list(c("Young", "Old")), paired = FALSE, hedges.correction = TRUE) %>%
+#   mutate(effsize = effsize * (-1))
 # filter(magnitude != "negligible")
 
 # ggdotchart(
@@ -168,11 +175,8 @@ data_box_eff_size <- data_box %>%
 #   add = "segment", position = position_dodge(0.3),
 #   sorting = "descending",
 #   rotate = TRUE, legend = "none"
-# )
 
 
-
-library(lme4)
 mod <- lm(Balance_eff ~ Age, data_TFP_analysis)
 mod %>% summary(.)
 effectsize::eta_squared(mod, partial = TRUE, alternative = "less")
@@ -184,9 +188,9 @@ plot(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff, pch = 19, col = "dark
 abline(lm(data_TFP_analysis$Balance_eff ~ data_TFP_analysis$Age), col = "red", lwd = 3)
 # Pearson correlation
 text(paste(
-  "Correlation between Age and I/S Balance (t(564) = -7.62, p < .001):",
+  "Correlation between Age and I/S Balance (t(625) = -11, p < .001):",
   round(cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)$estimate, 2)
-), x = 39, y = 6.5)
+), x = 38, y = 0.07)
 
 
 cor_efficiency <- data_TFP_analysis %>%
@@ -203,7 +207,7 @@ abline(lm(cor_efficiency$Eglob ~ cor_efficiency$Age), col = "red", lwd = 3)
 text(paste(
   "Correlation between Age and Global efficiency:",
   round(cor.test(cor_efficiency$Age, cor_efficiency$Eglob)$estimate, 2)
-), x = 73, y = 0.515)
+), x = 73, y = 0.485)
 
 ################################################################################
 # Topologico-functional profile across clusters  -------------------------------
@@ -234,7 +238,7 @@ Radar_functional_role_geometric_age <- data_TFP_analysis %>%
 
 palette <- RColorBrewer::brewer.pal(3, "YlOrRd")
 
-radarplotting_overlap(Radar_functional_role_geometric_age, 0.12, -0.12, 1, 1,
+radarplotting_overlap(Radar_functional_role_geometric_age, 0.2, -0.2, 1, 1,
   alpha = 0.1, label_size = 1, round = FALSE,
   title_fill = "Lifespan Topologico-functional profile (log ratio of geometric means)",
   palette = palette

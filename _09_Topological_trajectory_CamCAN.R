@@ -304,7 +304,7 @@ trajectory <- function(composition, list_RSN, threshold) {
   }
 }
 
-trajectory("modular", "All", 2.5)
+trajectory("interareal", "All", 2)
 
 ############################################################################
 # Easter egg :)

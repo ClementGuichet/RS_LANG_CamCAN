@@ -13,6 +13,19 @@ library(gbmt)
 
 epsilon <- 1e-1
 
+data_hub_selection_per_subject <- rbindlist(Hub_selection)
+tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_TFP_analysis %>%
+                              dplyr::select(Subj_ID, Age_group),
+                            by = "Subj_ID"
+)
+tmp_cluster_final$`1st_network` <- factor(tmp_cluster_final$`1st_network`,levels = 
+                                            c("Auditory", "Language",
+                                              "DMN", "FPN", 
+                                              "SMN", "Visual_1", "VMM",
+                                              "DAN", "PMM",
+                                              "CON", "Visual_2"))
+
+
 # Get the TFP for the first temporal segment
 trajectory_YM_modular <- tmp_cluster_final %>%
   filter(grepl("Young|Middle", Age_group)) %>% 
@@ -209,9 +222,9 @@ consensus_grouping <- stable_groups %>%
   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
   as.data.frame()
 
-write.csv(consensus_grouping, "consensus_GBMT_grouping_28012023_OMST_100iter.csv")
+write.csv(consensus_grouping, "consensus_GBMT_grouping_29012023_OSMT_100iter.csv")
 
-consensus_grouping <- read.csv("consensus_GBMT_grouping_28012023_OMST_100iter.csv") %>%
+consensus_grouping <- read.csv("consensus_GBMT_grouping_29012023_OSMT_100iter.csv") %>%
   as.data.frame() %>% remove_rownames() %>% tibble::column_to_rownames("X")
 
 
@@ -287,7 +300,7 @@ factoextra::fviz_dend(plot_cluster,
                       palette = "jco",
                       rect = T,
                       color_labels_by_k = TRUE,
-                      main = "Ward Hierarchical clustering"
+                      main = "Ward Hierarchical clustering based on OMST-thresholded networks (PC_normed, Hub selection = .2)"
 )
 
 # LDA ----

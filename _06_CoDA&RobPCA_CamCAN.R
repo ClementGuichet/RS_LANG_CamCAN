@@ -54,7 +54,7 @@ vegan::protest(
 
 # PCA of ILR-transformed data because a non-singular covariance matrix is needed/ robust covariance estimation need a full-rank matrix
 # CLR removes the value-range restriction but not the unit-sum constraint which makes PCA sensitive to outliers ----
-set.seed(4)
+set.seed(1)
 # library(PPcovMcd)
 cv <- robustbase::covMcd(data_ilr, nsamp = "deterministic")
 pcaIlr <- princomp(data_ilr, covmat = cv)
@@ -78,7 +78,7 @@ robCODA <- robCompositions::pcaCoDa(data_CODA,
 summary(robCODA)
 biplot(robCODA,
        scale = 0,
-       xlabs = rep("o", 627),
+       xlabs = rep("o", 628),
        col = c("red", "black"),
        xlim = c(-2, 2),
        cex = c(0.5, 1),
