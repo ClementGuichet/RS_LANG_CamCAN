@@ -214,7 +214,7 @@ stability <- function(start, i) {
     stable_groups <<- cbind(stable_groups, tmp_grouping) %>% as.data.frame()
   }
 }
-stability(1, 100)
+stability(1, 1000)
 
 
 consensus_grouping <- stable_groups %>%
@@ -222,9 +222,9 @@ consensus_grouping <- stable_groups %>%
   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
   as.data.frame()
 
-write.csv(consensus_grouping, "consensus_GBMT_grouping_29012023_OSMT_100iter.csv")
+write.csv(consensus_grouping, "consensus_GBMT_grouping_30012023_OSMT_1000iter.csv")
 
-consensus_grouping <- read.csv("consensus_GBMT_grouping_29012023_OSMT_100iter.csv") %>%
+consensus_grouping <- read.csv("consensus_GBMT_grouping_30012023_OSMT_1000iter.csv") %>%
   as.data.frame() %>% remove_rownames() %>% tibble::column_to_rownames("X")
 
 
@@ -300,7 +300,8 @@ factoextra::fviz_dend(plot_cluster,
                       palette = "jco",
                       rect = T,
                       color_labels_by_k = TRUE,
-                      main = "Ward Hierarchical clustering based on OMST-thresholded networks (PC_normed, Hub selection = .2)"
+                      main = "Ward Hierarchical clustering based on OMST-thresholded networks (100 iter PC_normed, Hub selection = .2,
+                      1000 iter)"
 )
 
 # LDA ----

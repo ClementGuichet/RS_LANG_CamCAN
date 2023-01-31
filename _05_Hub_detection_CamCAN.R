@@ -12,13 +12,13 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
   if (filtering_scheme == "OMST") {
     # Removing subjects with outlying global - cost efficiency
     setwd(paste0(getwd(), "/OMST"))
-    cost_OMST <- as.data.frame(fromJSON("globalcosteff_max.json")) %>%
+    cost_OMST <<- as.data.frame(fromJSON("globalcosteff_max.json")) %>%
       mutate(Subj_ID = rep(seq_len(628))) %>% 
       rename(cost_OMST = `fromJSON("globalcosteff_max.json")`)
     setwd(str_replace(getwd(), "\\/OMST", ""))
     
     performance::check_outliers(cost_OMST[1])
-    data_functional_role <- data_functional_role_tmp %>%
+    data_functional_role <<- data_functional_role_tmp %>%
       filter(Subj_ID != "129") %>%
       mutate(helper_vector = rep(seq_len(627), each = 131)) 
     
@@ -176,7 +176,8 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       Balance_eff = data_cluster_efficiency$Balance_eff,
       Eglob = data_cluster_efficiency$Eglob,
       Eloc = data_cluster_efficiency$Eloc
-    )
+    ) %>% 
+      filter(Subj_ID %in% LLC_filter$Subj_ID) 
     
     
     # Putting everything together
@@ -186,11 +187,12 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
         mutate_all(., ~ replace(., is.na(.), 0)) %>% mutate_at(vars(everything()), funs(. * 100)),
       data_functional_role %>% group_by(Subj_ID, gender_text, `1st_network`) %>% summarise_at(vars(Age), mean) %>% arrange(Subj_ID, `1st_network`),
       Balance_eff = data_cluster_efficiency$Balance_eff
-    )
+    ) %>% 
+      filter(Subj_ID %in% LLC_filter$Subj_ID)
   }
 }
 
 
-Hub_detection_procedure("OMST", .2)
+Hub_detection_procedure("proportional", .2)
 ################################################################################
 

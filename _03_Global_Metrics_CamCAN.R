@@ -4,40 +4,8 @@ source("_01_DataManip_CamCAN.R")
 ################################################################################
 library(plotly)
 
-setwd(paste0(getwd(), "/OMST"))
-listfile_components <- list.files(getwd(), pattern = "*.txt")[grep("components", list.files(getwd(), pattern = "*.txt"))]
-
-n_subj <- 628
-n_threshold <- 5
-
-components <- ldply(listfile_components, read.table, header = T, sep = "\t") %>%
-  mutate(threshold = rep("OMST")) %>% 
-  # mutate(threshold = rep(c(.1, .12, .15, .17, .2), each = n_subj)) %>%
-  # relocate(threshold, .after = (X)) %>%
-  plyr::rename(c("X" = "Subj_ID")) %>%
-  replace("Subj_ID", rep(seq_len(n_subj))) %>%
-  # replace("Subj_ID", rep(seq_len(n_subj), times = n_threshold)) %>%
-  pivot_longer(
-    cols = !c("Subj_ID", "threshold"),
-    names_to = "Region",
-    values_to = "components"
-  )
-
-# # Get proportion of LLC per threshold across subjects
-LLC <- components %>%
-  group_by(Subj_ID) %>%
-  count(threshold, components) %>%
-  group_by(Subj_ID, threshold) %>%
-  mutate(prop = prop.table(n)) %>%
-  slice_max(prop, n = 1) %>%
-  group_by(threshold) %>%
-  summarise_at(vars(prop), mean) %>%
-  plyr::rename(c("prop" = "Largest Connected Component"))
-
-data_full_per_subject_LLC <- merge(data_full_per_subject, LLC, by = "threshold") %>%
+data_full_per_subject_LLC <- merge(data_full_per_subject, LLC_threshold, by = "threshold") %>%
   arrange(Subj_ID, threshold)
-
-setwd(str_replace(getwd(), "\\/OMST", ""))
 
 # Evolution of Global metrics - what is the optimal threshold?
 evo <- data_full_per_subject_LLC %>%

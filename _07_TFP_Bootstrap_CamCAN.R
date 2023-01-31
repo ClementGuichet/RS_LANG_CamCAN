@@ -66,7 +66,7 @@ bootstrap_ci <- function(n_boot, epsilon) {
       values_to = "Log_ratio_geom_mean"
     )
   
-  write.csv(summary_bootstrap, "summary_bootstrap.csv")
+  write.csv(summary_bootstrap, "summary_bootstrap_OMST_30012023.csv")
 }
 
 bootstrap_ci(1e4, 1e-1)

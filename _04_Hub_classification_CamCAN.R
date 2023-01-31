@@ -280,7 +280,6 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     
     
     # Putting it all together ----
-    
     data_functional_role <<- rbind(data_young, data_middle, data_old) %>% 
       group_by(Subj_ID) %>% 
       mutate(zBT = as.numeric(scale(Betweenness))) %>%
@@ -307,11 +306,11 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
       arrange(Subj_ID, Region) %>%
       ungroup()
     
-    data_functional_role$Hub_consensus <<- factor(data_functional_role$Hub_consensus, levels = c(
+    data_functional_role$Hub_consensus <- factor(data_functional_role$Hub_consensus, levels = c(
       "Connector", "Provincial", "Satellite", "Peripheral"
     ))
     
-    data_functional_role$Bridgeness <<- factor(data_functional_role$Bridgeness, levels = c(
+    data_functional_role$Bridgeness <- factor(data_functional_role$Bridgeness, levels = c(
       "Global_Bridge", "Local_Bridge", "Super_Bridge", "Not_a_Bridge"
     ))
     
@@ -320,7 +319,7 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
   }
 }
 
-Hub_classification_procedure("OMST")
+Hub_classification_procedure("proportional")
 
 ################################################################################
 ################################################################################

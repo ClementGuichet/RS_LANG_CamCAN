@@ -131,9 +131,10 @@ trajectory <- function(composition, list_RSN, threshold) {
     crossdatadf <- adjacency_to_2col(outer_young_to_middle)
     outer_young_to_middle_2 <- crossdatadf
 
-    tmp_young_to_middle <- cbind(tmp %>% slice(1:nrow(outer_young_to_middle_2)) %>%
+    tmp_young_to_middle <<- cbind(tmp %>% slice(1:nrow(outer_young_to_middle_2)) %>%
       dplyr::select(`1st_network`, Region), outer_young_to_middle_2) %>%
-      plyr::rename(c("Value" = "Value_YM"))
+      plyr::rename(c("Value" = "Value_YM")) %>% 
+      filter(Value_YM > 0)
 
     ############################################################################
     # Second segment - Middle to Old
@@ -304,7 +305,7 @@ trajectory <- function(composition, list_RSN, threshold) {
   }
 }
 
-trajectory("interareal", "All", 2)
+trajectory("modular", "All", 2)
 
 ############################################################################
 # Easter egg :)

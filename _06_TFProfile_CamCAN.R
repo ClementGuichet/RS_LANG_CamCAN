@@ -10,6 +10,8 @@ source("_geometricmeanCruz.R")
 ################################################################################
 # Investigating the evolution of graph-based metrics ----
 ################################################################################
+library(rio)
+TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
 
 TFP_General %>%  
   dplyr::select(Subj_ID, Age, Connector, Provincial, Peripheral, Satellite) %>%
@@ -37,12 +39,8 @@ TFP_General %>%
   theme_pubclean() +
   ggtitle("Evolution of interareal functional roles across adult lifespan")
 
-library(brms)
-mod <- lm(mvbind(Connector, Satellite, Provincial, Peripheral,
-                 Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
-          ~Age, 
-          data = TFP_General)
-summary(mod)
+################################################################################
+# DESCRIPTIVES
 ################################################################################
 
 data_TFP_analysis <- TFP_General %>% 
@@ -52,31 +50,31 @@ data_TFP_analysis <- TFP_General %>%
 
 data_TFP_analysis$Age_group <- factor(data_TFP_analysis$Age_group, levels = c("Young", "Middle", "Old"))
 
-# data_TFP_analysis %>%
-#   group_by(Age_group) %>%
-#   get_summary_stats("Age", type = "full")
-# 
-# data_TFP_analysis %>%
-#   group_by(Age_group) %>%
-#   count(Gender) %>%
-#   mutate(n = prop.table(n))
-# 
-# 
-# a <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Young"),
-#   x = "Age", y = "..density..", bins = 10,
-#   fill = "purple", add_density = TRUE
-# ) + theme_pubclean()
-# b <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Middle"),
-#   x = "Age", y = "..density..", bins = 10,
-#   fill = "purple", add_density = TRUE
-# )
-# c <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Old"),
-#   x = "Age", y = "..density..", bins = 15,
-#   fill = "purple", add_density = TRUE
-# ) + theme_pubclean()
-# 
-# 
-# Rmisc::multiplot(a, b, c)
+data_TFP_analysis %>%
+  group_by(Age_group) %>%
+  get_summary_stats("Age", type = "full")
+
+data_TFP_analysis %>%
+  group_by(Age_group) %>%
+  count(Gender) %>%
+  mutate(n = prop.table(n))
+
+
+a <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Young"),
+  x = "Age", y = "..density..", bins = 10,
+  fill = "purple", add_density = TRUE
+) + theme_pubclean()
+b <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Middle"),
+  x = "Age", y = "..density..", bins = 10,
+  fill = "purple", add_density = TRUE
+)
+c <- gghistogram(data_TFP_analysis %>% subset(Age_group == "Old"),
+  x = "Age", y = "..density..", bins = 15,
+  fill = "purple", add_density = TRUE
+) + theme_pubclean()
+
+
+Rmisc::multiplot(a, b, c)
 
 
 # data_pca <- data_TFP_analysis %>% dplyr::select(-c("Subj_ID", "Gender", "Age", "Age_group", "Balance_eff"))
@@ -117,10 +115,6 @@ data_cluster_selection <- function(cluster1, cluster2) {
   )
 }
 data_cluster_selection("Young", "Old")
-
-
-
-
 
 ################################################################################
 # Box plot ---------------------------------------------------------------------
@@ -176,38 +170,6 @@ ggplot(data_box, aes(x = Metrics, y = Metric_value)) +
 #   sorting = "descending",
 #   rotate = TRUE, legend = "none"
 
-
-mod <- lm(Balance_eff ~ Age, data_TFP_analysis)
-mod %>% summary(.)
-effectsize::eta_squared(mod, partial = TRUE, alternative = "less")
-
-cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)
-# Balance Integration/Segregation
-plot(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff, pch = 19, col = "darkblue")
-# Regression line
-abline(lm(data_TFP_analysis$Balance_eff ~ data_TFP_analysis$Age), col = "red", lwd = 3)
-# Pearson correlation
-text(paste(
-  "Correlation between Age and I/S Balance (t(625) = -11, p < .001):",
-  round(cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)$estimate, 2)
-), x = 38, y = 0.07)
-
-
-cor_efficiency <- data_TFP_analysis %>%
-  dplyr::select(Subj_ID, Age, Eglob, Eloc) %>%
-  group_by(Age) %>%
-  summarize_at(vars(Eglob, Eloc), mean)
-
-cor.test(cor_efficiency$Age, cor_efficiency$Eglob)
-# Balance Integration/Segregation
-plot(cor_efficiency$Age, cor_efficiency$Eglob, pch = 19, col = "darkblue")
-# Regression line
-abline(lm(cor_efficiency$Eglob ~ cor_efficiency$Age), col = "red", lwd = 3)
-# Pearson correlation
-text(paste(
-  "Correlation between Age and Global efficiency:",
-  round(cor.test(cor_efficiency$Age, cor_efficiency$Eglob)$estimate, 2)
-), x = 73, y = 0.485)
 
 ################################################################################
 # Topologico-functional profile across clusters  -------------------------------
@@ -334,5 +296,128 @@ legend(
 # )
 
 
+################################################################################
+# ILR TRANSFORMATION 
+################################################################################
+
+data_coda_modular <- data_TFP_analysis %>%
+  dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
+  acomp(.) %>% 
+  # Preserves the ratios between non-zero components
+  cmultRepl(., output = "prop")
+
+data_coda_interareal <- data_TFP_analysis %>%
+  dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
+  acomp(.) %>%
+  cmultRepl(., output = "prop")
+
+data_imputed <- cbind(data_coda_modular, data_coda_interareal,
+                      data_TFP_analysis %>% dplyr::select(Subj_ID, Age, Age_group, Gender, Eglob, Eloc, Balance_eff))
+
+data_imputed <- data_imputed %>%  
+  mutate(ilr_modular = (((1/2)^0.5)*log(Connector/((Provincial*Satellite)^0.5)))) %>% 
+  mutate(ilr_modular = as.numeric(scale(ilr_modular))) %>%
+  mutate(Eglob = as.numeric(scale(Eglob))) %>% 
+  mutate(Age = as.numeric(scale(Age))) %>% 
+  mutate(ilr_interareal = (((2/3)^0.5)*log(Global_Bridge/((Super_Bridge*Not_a_Bridge)^0.5))))
+
+################################################################################
+# MEDIATION ANALYSIS
+################################################################################
+
+library(robustbase)
+# STEP 1: Total effect DV ~ IV
+mod1 <- lmrob(Eglob~ Age, data = data_imputed, method = "MM")
+summary(mod1)
+# plot(mod1)
+data_flexplot <- data_imputed %>% filter(!(grepl("469|378|159", Subj_ID)))
+flexplot(Eglob~Age, data_flexplot, method = "lm")
+
+# STEP 2: Indirect effect Mediator ~ IV
+mod2 <- lmrob(ilr_modular~ Age, data = data_imputed, method = "MM")
+summary(mod2)
+# plot(mod2)
+data_flexplot_mod2 <- data_imputed %>% filter(!(grepl("538|332|159", Subj_ID)))
+flexplot(ilr_modular~ Age, data_flexplot_mod2, method = "polynomial")
+
+# Step 3: DV ~ IV + mediator
+mod3 <- lmrob(Eglob~ ilr_modular + Age, data = data_imputed, method = "MM")
+summary(mod3)
+# plot(mod3)
+data_flexplot_mod3 <- data_imputed %>% filter(!(grepl("469|242|378", Subj_ID)))
+flexplot(Eglob~ ilr_modular, data_flexplot_mod3, method = "polynomial")
+
+psych::mediate(Eglob~Age + (ilr_modular), data = data_imputed) %>% summary()
+med <- robmed::test_mediation(Eglob~m(ilr_modular) + Age, data = data_imputed, robust = "MM")
+summary(med)
+robmed::ellipse_plot(med)
+
+# The effect of Age on global efficiency was fully mediated
+# via the balance between Connector and Provincial/Satellite hubs.
+# We tested the significance of the indirect effect using bootstrapping procedures.
+# Unstandardized indirect effects were computed for each of 1000 boostrapped sample
+
+################################################################################
+################################################################################
+# source("outliersFunction.R")
+# outliers(Eglob ~ ilr_modular, data_imputed)
+
+data_imputed_plot <- data_imputed 
+#define datasets
+x1 <-  data_imputed_plot %>% filter(Age_group == "Young") %>% dplyr::select(ilr_modular) %>% as.matrix()
+y1 <-  data_imputed_plot %>% filter(Age_group == "Young") %>% dplyr::select(Eglob) %>% as.matrix()
+
+x2 <-  data_imputed_plot %>% filter(Age_group == "Middle") %>% dplyr::select(ilr_modular) %>% as.matrix()
+y2 <-  data_imputed_plot %>% filter(Age_group == "Middle") %>% dplyr::select(Eglob) %>% as.matrix()
+
+x3 <-  data_imputed_plot %>% filter(Age_group == "Old") %>% dplyr::select(ilr_modular) %>% as.matrix()
+y3 <-  data_imputed_plot %>% filter(Age_group == "Old") %>% dplyr::select(Eglob) %>% as.matrix()
+
+#create scatterplot of x1 vs. y1
+plot(x1, y1, col='blue', pch=19, cex=1,
+     xlab='Connector vs Provincial & Satellite', ylab='Global efficiency', 
+     main='Modular balance and Global efficiency (proportional) ')
+
+points(x2, y2, col='orange', pch=15, cex=1)
+points(x3, y3, col='red', pch=17, cex=1)
+#add legend
+legend("bottomleft", legend=c('Young', 'Middle', 'Old'), pch=c(19, 15, 17), col=c('blue', 'orange', 'red'))
+
+#add polynomial curve to plot
+mod <- lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM")
+summary(mod)
+pred <- predict(mod)
+abline(lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM"), lwd = 3)
+# ix <- sort(data_imputed_plot$ilr_modular %>% as.matrix(), index.return=T)$ix
+# lines(data_imputed_plot$ilr_modular[ix], pred[ix], col='black', lwd=2)
+
+text(0, 0.44, "Eglob = 0.51 - 0.02 * b1; p-value < 2e-16 (with MM estimator)")
+
+mod <- lm(Balance_eff ~ Age, data_TFP_analysis)
+mod %>% summary(.)
+effectsize::eta_squared(mod, partial = TRUE, alternative = "less")
+
+cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)
+# Balance Integration/Segregation
+plot(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff, pch = 19, col = "darkblue")
+# Regression line
+abline(lm(data_TFP_analysis$Balance_eff ~ data_TFP_analysis$Age), col = "red", lwd = 3)
+# Pearson correlation
+text(paste(
+  "Correlation between Age and I/S Balance (t(625) = -11, p < .001):",
+  round(cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)$estimate, 2)
+), x = 38, y = 0.07)
 
 
+cor_efficiency <- data_TFP_analysis 
+
+cor.test(cor_efficiency$Age, cor_efficiency$Eglob)
+# Balance Integration/Segregation
+plot(cor_efficiency$Age, cor_efficiency$Eglob, pch = 19, col = "darkblue")
+# Regression line
+abline(lm(cor_efficiency$Eglob ~ cor_efficiency$Age), col = "red", lwd = 3)
+# Pearson correlation
+text(paste(
+  "Correlation between Age and Global efficiency:",
+  round(cor.test(cor_efficiency$Age, cor_efficiency$Eglob)$estimate, 2)
+), x = 73, y = 0.485)

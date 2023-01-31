@@ -241,7 +241,45 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
     # output <- cbind(threshold, Q_consensus)
     
     # Glob_final <<- merge(Glob, output, by.x = "threshold", all = T)
+    
+    # Removing subjects with less than 90% of connected regions
+    listfile_components <- list.files(getwd(), pattern = "*.txt")[grep("components", list.files(getwd(), pattern = "*.txt"))]
+  
+    components <- ldply(listfile_components, read.table, header = T, sep = "\t") %>%
+      # mutate(threshold = rep("OMST")) %>% 
+      mutate(threshold = rep(c(.1, .12, .15, .17, .2), each = n_subj)) %>%
+      relocate(threshold, .after = (X)) %>%
+      plyr::rename(c("X" = "Subj_ID")) %>%
+      # replace("Subj_ID", rep(seq_len(n_subj))) %>%
+      replace("Subj_ID", rep(seq_len(n_subj), times = n_threshold)) %>%
+      pivot_longer(
+        cols = !c("Subj_ID", "threshold"),
+        names_to = "Region",
+        values_to = "components"
+      )
+    
+    # # Get proportion of LLC per threshold across subjects
+    LLC_filter <<- components %>%
+      group_by(Subj_ID) %>%
+      count(threshold, components) %>%
+      group_by(Subj_ID, threshold) %>%
+      mutate(prop = prop.table(n)) %>%
+      slice_max(prop, n = 1) %>% 
+      filter(threshold == "0.15") %>% 
+      filter(prop > 0.9)
+    
+    LLC_threshold <<- components %>%
+      group_by(Subj_ID) %>%
+      count(threshold, components) %>%
+      group_by(Subj_ID, threshold) %>%
+      mutate(prop = prop.table(n)) %>%
+      slice_max(prop, n = 1) %>% 
+      group_by(threshold) %>%
+      summarise_at(vars(prop), mean) %>%
+      plyr::rename(c("prop" = "Largest Connected Component"))
+  
     setwd(str_replace(getwd(), "\\/data_graphvar_T1", ""))
+  
   }
   
   ################################################################################
@@ -263,7 +301,6 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
   
   # Add RSNs classification, consensus vectors & global metrics
   # DIMENSIONS 645 Subjects * 131 Regions * 5 thresholds
-  
   data_full <<- merge(tmp_local_1, meta_data_0, by = "Region") %>%
     relocate(Region, .after = Subj_ID) %>%
     relocate(Index.Power264, .before = Region) %>%
@@ -274,6 +311,7 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
     ) %>%
     arrange(Subj_ID, threshold, Region) %>%
     mutate_at(vars(Age), funs(as.numeric(.)))
+
   
   # Combining data for each row = one subject
   data_local_per_subject <- data_full %>%
@@ -300,11 +338,12 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
   data_full_per_region <<- merge(data_global_per_region, meta_data_0, by = "Region")
 }
 
-data_wrangling(628, 5, "OMST")
+data_wrangling(628, 5, "proportional")
+
 
 ################################################################################
 # Output-------------------------------
 ################################################################################
 
-rm(list = ls()[!ls() %in% c("data_full", "data_full_per_subject", "data_full_per_region")])
+rm(list = ls()[!ls() %in% c("data_full", "data_full_per_subject", "data_full_per_region",  "LLC_filter", "LLC_threshold")])
 

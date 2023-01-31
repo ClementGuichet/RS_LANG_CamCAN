@@ -36,7 +36,8 @@ ilrV <- function(x) {
   }
   return(x.ilr)
 }
-data_ilr <- cbind(ilrV(data_coda_modular), ilrV(data_coda_interareal))
+
+data_imputed <- cbind(data_coda_modular, data_coda_interareal)
 
 # Correlation in a symmetric Procrustes rotation: 0.8901
 vegan::protest(
@@ -46,8 +47,10 @@ vegan::protest(
       Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge
     ) %>%
     as.matrix(),
-  data_ilr
+  data_imputed
 )
+
+data_ilr <- cbind(ilrV(data_coda_modular), ilrV(data_coda_interareal))
 
 ################################################################################
 ################################################################################
@@ -55,8 +58,8 @@ vegan::protest(
 # PCA of ILR-transformed data because a non-singular covariance matrix is needed/ robust covariance estimation need a full-rank matrix
 # CLR removes the value-range restriction but not the unit-sum constraint which makes PCA sensitive to outliers ----
 set.seed(1)
-# library(PPcovMcd)
-cv <- robustbase::covMcd(data_ilr, nsamp = "deterministic")
+library(PPcovMcd)
+cv <- PPcovMcd::PPcovMcd(data_ilr, nsamp = "PP")
 pcaIlr <- princomp(data_ilr, covmat = cv)
 pcaIlr$scores
 biplot(pcaIlr, scale = 0)
@@ -85,10 +88,6 @@ biplot(robCODA,
        choices = c(1, 2)
 )
 
-
-
-plot(robCODA, type = "l")
-robCODA$scores
 robCODA$loadings
 
 # Outlier detection
