@@ -26,6 +26,12 @@ TFP_General %>%
   theme_pubclean() +
   ggtitle("Evolution of modular functional roles across adult lifespan")
 
+# 2 RECONFIGURATION MECHANISM
+# Integration within module and integration between modules
+
+# MECHANISM WITHIN:  Satellite reconfigure into Connectors or Peripheral, meaning they either get integrated into a module or left on their own
+# MECHANISM BETWEEN: Half of Provincial hubs reconfigure into Connector
+
 TFP_General %>% 
   dplyr::select(Subj_ID, Age, Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
   pivot_longer(
@@ -384,40 +390,13 @@ points(x3, y3, col='red', pch=17, cex=1)
 legend("bottomleft", legend=c('Young', 'Middle', 'Old'), pch=c(19, 15, 17), col=c('blue', 'orange', 'red'))
 
 #add polynomial curve to plot
-mod <- lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM")
+mod <- robustbase::lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM")
 summary(mod)
 pred <- predict(mod)
-abline(lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM"), lwd = 3)
+abline(robustbase::lmrob(Eglob ~ ilr_modular + Age, data_imputed_plot, method = "MM"), lwd = 3)
 # ix <- sort(data_imputed_plot$ilr_modular %>% as.matrix(), index.return=T)$ix
 # lines(data_imputed_plot$ilr_modular[ix], pred[ix], col='black', lwd=2)
 
 text(0, 0.44, "Eglob = 0.51 - 0.02 * b1; p-value < 2e-16 (with MM estimator)")
 
-mod <- lm(Balance_eff ~ Age, data_TFP_analysis)
-mod %>% summary(.)
-effectsize::eta_squared(mod, partial = TRUE, alternative = "less")
 
-cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)
-# Balance Integration/Segregation
-plot(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff, pch = 19, col = "darkblue")
-# Regression line
-abline(lm(data_TFP_analysis$Balance_eff ~ data_TFP_analysis$Age), col = "red", lwd = 3)
-# Pearson correlation
-text(paste(
-  "Correlation between Age and I/S Balance (t(625) = -11, p < .001):",
-  round(cor.test(data_TFP_analysis$Age, data_TFP_analysis$Balance_eff)$estimate, 2)
-), x = 38, y = 0.07)
-
-
-cor_efficiency <- data_TFP_analysis 
-
-cor.test(cor_efficiency$Age, cor_efficiency$Eglob)
-# Balance Integration/Segregation
-plot(cor_efficiency$Age, cor_efficiency$Eglob, pch = 19, col = "darkblue")
-# Regression line
-abline(lm(cor_efficiency$Eglob ~ cor_efficiency$Age), col = "red", lwd = 3)
-# Pearson correlation
-text(paste(
-  "Correlation between Age and Global efficiency:",
-  round(cor.test(cor_efficiency$Age, cor_efficiency$Eglob)$estimate, 2)
-), x = 73, y = 0.485)
