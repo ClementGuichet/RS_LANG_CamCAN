@@ -36,14 +36,7 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
     rename(Age = age) %>% 
     replace("Subj_ID", seq_len(628)) %>%
     mutate(Gender_c = ifelse(gender_text == "MALE", -0.5, 0.5))
-  
-  # CAMCAN_cognitive_data <- read_excel("meta_data_628/CognitiveData_CamCAN_Apr2022.xlsx") %>%
-  #   filter(Observations %in% participant_data$Observations) %>%
-  #   dplyr::select(-gender_code) %>%
-  #   rename(Age_CogData = Age)
-  
-  # meta_data_1 <- merge(participant_data, CAMCAN_cognitive_data, by = "Observations")
-  
+
   ##########################################################################################
   ##########################################################################################
   # Import data -------------------------------------

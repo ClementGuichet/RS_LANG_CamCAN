@@ -176,7 +176,7 @@ interaction_Age_FuncRole_RSN <- function(max, min, max2, min2, alpha, RSN_modula
 # RSN to be displayed -- either "All" or specify the RSN with | for separation
 # Choose round = FALSE if scores have decimal points
 
-interaction_Age_FuncRole_RSN(0.75, -0.75, 0.75, -0.75, 0.1,
+interaction_Age_FuncRole_RSN(1, -1, 1, -1, 0.1,
                              RSN_modular = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              RSN_interareal = "Auditory|Language|CON|DMN|FPN|SMN|Visual_1|DAN|PMM|Visual_2",
                              epsilon = 1e-1,

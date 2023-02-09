@@ -185,13 +185,13 @@ ggplot(data_box, aes(x = Metrics, y = Metric_value)) +
 # equivalent to CLR-transform, preserves unit-sum constraint and removes value-range restriction
 
 geometric_all <- data_TFP_analysis %>%
-  summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = 1e-1)))
+  summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = 1e-1)))
 
 Radar_functional_role_geometric_age <- data_TFP_analysis %>%
   dplyr::select(-Age) %>%
   filter(grepl("Young|Middle|Old", Age_group)) %>%
   group_by(Age_group) %>%
-  summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = 1e-1))) %>%
+  summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = 1e-1))) %>%
   mutate(Connector = log(Connector / geometric_all$Connector)) %>%
   mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
   mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%

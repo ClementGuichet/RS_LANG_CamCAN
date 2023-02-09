@@ -57,9 +57,9 @@ data_ilr <- cbind(ilrV(data_coda_modular), ilrV(data_coda_interareal))
 
 # PCA of ILR-transformed data because a non-singular covariance matrix is needed/ robust covariance estimation need a full-rank matrix
 # CLR removes the value-range restriction but not the unit-sum constraint which makes PCA sensitive to outliers ----
-set.seed(1)
+set.seed(4)
 library(PPcovMcd)
-cv <- PPcovMcd::PPcovMcd(data_ilr, nsamp = "PP")
+cv <- PPcovMcd::PPcovMcd(data_ilr, nsamp = "PP", cor = FALSE)
 pcaIlr <- princomp(data_ilr, covmat = cv)
 pcaIlr$scores
 biplot(pcaIlr, scale = 0)
@@ -70,25 +70,53 @@ plot(cv$mah)
 data_CODA <- cbind(data_coda_modular, data_coda_interareal) %>% as.data.frame()
 
 # Back-transform to clr fo rinterpretability of compositional variability
-robCODA <- robCompositions::pcaCoDa(data_CODA,
-                                    method = "robust", solve = "eigen",
-                                    mult_comp = list(
-                                      c(1, 2, 3, 4), c(5, 6, 7, 8)
-                                    )
-)
-
-
-summary(robCODA)
-biplot(robCODA,
+robCODA_m <- robCompositions::pcaCoDa(data_coda_modular,
+                                    method = "robust", solve = "eigen")
+summary(robCODA_m)
+biplot(robCODA_m,
        scale = 0,
-       xlabs = rep("o", 628),
+       xlabs = rep("o", 627),
        col = c("red", "black"),
        xlim = c(-2, 2),
        cex = c(0.5, 1),
        choices = c(1, 2)
 )
 
-robCODA$loadings
+robCODA_m$loadings
+
+robCODA_i <- robCompositions::pcaCoDa(data_coda_interareal,
+                                    method = "robust", solve = "eigen")
+summary(robCODA_i)
+biplot(robCODA_i,
+       scale = 0,
+       xlabs = rep("o", 627),
+       col = c("red", "black"),
+       xlim = c(-2, 2),
+       cex = c(0.5, 1),
+       choices = c(1, 2)
+)
+
+robCODA_i$loadings
+
+robCODA_total <- robCompositions::pcaCoDa(data_CODA,
+                                      method = "robust", solve = "eigen",
+                                    mult_comp = list(
+                                      c(1, 2, 3, 4), c(5, 6, 7, 8)
+                                    )
+)
+
+
+summary(robCODA_total)
+biplot(robCODA_total,
+       scale = 0,
+       xlabs = rep("o", 627),
+       col = c("red", "black"),
+       xlim = c(-2, 2),
+       cex = c(0.5, 1),
+       choices = c(1, 2)
+)
+
+robCODA_total$loadings
 
 # Outlier detection
 par(mfrow = c(2, 1))

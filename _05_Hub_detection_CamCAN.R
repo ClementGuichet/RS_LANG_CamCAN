@@ -164,7 +164,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       dplyr::select(Subj_ID, Eglob, Eloc) %>%
       group_by(Subj_ID) %>%
       summarize_at(vars(Eglob, Eloc), mean) %>%
-      mutate(Balance_eff = (Eloc - Eglob) / (Eloc + Eglob))
+      mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob))
     
     ################################################################################
     # Putting everything together
@@ -177,6 +177,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       Eglob = data_cluster_efficiency$Eglob,
       Eloc = data_cluster_efficiency$Eloc
     ) %>% 
+      # Remove subject with fragmented graph
       filter(Subj_ID %in% LLC_filter$Subj_ID) 
     
     

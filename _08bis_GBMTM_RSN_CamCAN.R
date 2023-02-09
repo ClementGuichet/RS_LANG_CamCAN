@@ -15,9 +15,16 @@ epsilon <- 1e-1
 
 data_hub_selection_per_subject <- rbindlist(Hub_selection)
 tmp_cluster_final <<- merge(data_hub_selection_per_subject, data_TFP_analysis %>%
-                              dplyr::select(Subj_ID, Age_group),
+                              dplyr::select(Subj_ID, Age_group, Age),
                             by = "Subj_ID"
-)
+) %>% 
+  mutate(Age_decade = ifelse(Age <= 29, 25, 
+                             ifelse(Age <= 39, 35,
+                                    ifelse(Age <= 49, 45,
+                                           ifelse(Age <= 59, 55,
+                                                  ifelse(Age <= 69, 65,
+                                                         ifelse(Age <= 79, 75, 85)))))))
+
 tmp_cluster_final$`1st_network` <- factor(tmp_cluster_final$`1st_network`,levels = 
                                             c("Auditory", "Language",
                                               "DMN", "FPN", 
@@ -155,20 +162,115 @@ gbmt_rsn <- traj_global %>%
   )) %>% filter(`1st_network` != "VMM")
 
 
+
+# Continous age
+
+# Get the TFP for the first temporal segment
+trajectory_modular <- tmp_cluster_final %>%
+  group_by(`1st_network`, Region, Subj_ID, Age_decade, Hub_consensus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  spread(Hub_consensus, freq) %>%
+  dplyr::select(-n) %>%
+  mutate_all(., ~ replace(., is.na(.), 0)) %>%
+  group_by(`1st_network`, Subj_ID, Age_decade) %>%
+  summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>%
+  ungroup() %>%
+  pivot_longer(cols = !c("1st_network","Subj_ID", "Age_decade"), names_to = "Functional_role", values_to = "freq") %>% 
+  group_by(`1st_network`, Age_decade, Functional_role) %>%
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
+
+trajectory_interareal <- tmp_cluster_final %>%
+  group_by(`1st_network`, Region, Subj_ID, Age_decade, Bridgeness) %>%
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  spread(Bridgeness, freq) %>%
+  dplyr::select(-n) %>%
+  mutate_all(., ~ replace(., is.na(.), 0)) %>%
+  group_by(`1st_network`, Subj_ID, Age_decade) %>%
+  summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>%
+  ungroup() %>%
+  pivot_longer(cols = !c("1st_network", "Subj_ID",  "Age_decade"), names_to = "Functional_role", values_to = "freq") %>% 
+  group_by(`1st_network`, Age_decade, Functional_role) %>%
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon)))
+
+
+traj_global <- rbind(trajectory_modular, trajectory_interareal) %>%
+  spread(Functional_role, freq) %>% 
+  as.data.frame() 
+
+traj_coda_modular <- traj_global %>%
+    dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
+    acomp(.) %>%
+    # Preserves the ratios between non-zero components
+    cmultRepl(., output = "prop")
+  
+traj_coda_interareal <- traj_global %>%
+    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
+    acomp(.) %>%
+    cmultRepl(., output = "prop")
+  
+traj_global_imputed <- cbind(traj_global %>% dplyr::select(`1st_network`, Age_decade),
+                             traj_coda_modular, 
+                             traj_coda_interareal)
+# Normalization procedure ---- Y*(i, t, k) = log(geom_mean Y i, t, k/geom_mean Y i, k)
+geometric_all_modular <- tmp_cluster_final %>% 
+  group_by(`1st_network`, Region, Subj_ID, Age_decade, Hub_consensus) %>%
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  spread(Hub_consensus, freq) %>%
+  dplyr::select(-n) %>%
+  mutate_all(., ~ replace(., is.na(.), 0)) %>%
+  group_by(`1st_network`, Subj_ID, Age_decade) %>%
+  summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>%
+  ungroup() %>%
+  pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_decade"), names_to = "Functional_role", values_to = "freq") %>%
+  group_by(`1st_network`, Functional_role) %>%
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
+  spread(Functional_role, freq)
+
+geometric_all_interareal <- tmp_cluster_final %>% 
+  group_by(`1st_network`, Region, Subj_ID, Age_decade, Bridgeness) %>%
+  summarise(n = n()) %>%
+  mutate(freq = n / sum(n)) %>%
+  spread(Bridgeness, freq) %>%
+  dplyr::select(-n) %>%
+  mutate_all(., ~ replace(., is.na(.), 0)) %>%
+  group_by(`1st_network`, Subj_ID, Age_decade) %>%
+  summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>%
+  ungroup() %>%
+  pivot_longer(cols = !c("1st_network", "Subj_ID", "Age_decade"), names_to = "Functional_role", values_to = "freq") %>%
+  group_by(`1st_network`, Functional_role) %>%
+  summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
+  spread(Functional_role, freq)
+
+geometric_all <- merge(geometric_all_modular, geometric_all_interareal) %>% group_by(`1st_network`)
+
+gbmt_rsn <- traj_global_imputed %>% 
+  group_by(Age_decade) %>% 
+  mutate(Connector = log(Connector / geometric_all$Connector)) %>%
+  mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
+  mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
+  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) %>%
+  mutate(Global_Bridge = log(Global_Bridge / geometric_all$Global_Bridge)) %>%
+  mutate(Local_Bridge = log(Local_Bridge / geometric_all$Local_Bridge)) %>%
+  mutate(Super_Bridge = log(Super_Bridge / geometric_all$Super_Bridge)) %>%
+  mutate(Not_a_Bridge = log(Not_a_Bridge / geometric_all$Not_a_Bridge))
+
 # https://journals.sagepub.com/doi/10.1177/0962280216673085
-set.seed(1)
+set.seed(2)
 mod <- gbmt::gbmt(
   x.names = c(
     "Connector", "Provincial", "Satellite", "Peripheral",
     "Global_Bridge", "Local_Bridge", "Super_Bridge", "Not_a_Bridge"
   ),
   unit = "1st_network",
-  time = "Age_group",
+  time = "Age_decade",
   scaling = 0,
   data = gbmt_rsn %>% as.data.frame(),
-  nstart = 1e2,
+  nstart = 10,
   ng = 5,
-  d = 2
+  d = 7
 )
 
 mod$assign.list
@@ -214,7 +316,7 @@ stability <- function(start, i) {
     stable_groups <<- cbind(stable_groups, tmp_grouping) %>% as.data.frame()
   }
 }
-stability(1, 1000)
+stability(1, 100)
 
 
 consensus_grouping <- stable_groups %>%
@@ -222,9 +324,9 @@ consensus_grouping <- stable_groups %>%
   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
   as.data.frame()
 
-write.csv(consensus_grouping, "consensus_GBMT_grouping_30012023_OSMT_1000iter.csv")
+write.csv(consensus_grouping, "consensus_GBMT_grouping_09022023_PT_100iter.csv")
 
-consensus_grouping <- read.csv("consensus_GBMT_grouping_30012023_OSMT_1000iter.csv") %>%
+consensus_grouping <- read.csv("consensus_GBMT_grouping_09022023_PT_100iter.csv") %>%
   as.data.frame() %>% remove_rownames() %>% tibble::column_to_rownames("X")
 
 
@@ -300,8 +402,8 @@ factoextra::fviz_dend(plot_cluster,
                       palette = "jco",
                       rect = T,
                       color_labels_by_k = TRUE,
-                      main = "Ward Hierarchical clustering based on OMST-thresholded networks (100 iter PC_normed, Hub selection = .2,
-                      1000 iter)"
+                      main = "Ward Hierarchical clustering  (100 iter PC_normed, Hub selection = .2,
+                      100 iter)"
 )
 
 # LDA ----
