@@ -189,7 +189,13 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
     tmp_cluster_final <<- filter(
       data_hub_selection_per_subject,
       Subj_ID %in% TFP_General$Subj_ID
-    )
+    ) %>% 
+      mutate(Age_decade = ifelse(Age <= 29, 25, 
+                                 ifelse(Age <= 39, 35,
+                                        ifelse(Age <= 49, 45,
+                                               ifelse(Age <= 59, 55,
+                                                      ifelse(Age <= 69, 65,
+                                                             ifelse(Age <= 79, 75, 85)))))))
     
     ################################################################################
     # TPF at the Subject-level & RSN-level
@@ -226,6 +232,42 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       spread(Functional_role, freq)
     
     TFP_RSN <<- merge(trajectory_modular, trajectory_internodal, by = c("Subj_ID", "1st_network", "Age")) %>% 
+      mutate_at(vars(Connector:Super_Bridge), funs(as.numeric(. * 100)))
+    
+    # TPF at the Age-level & RSN-level
+    epsilon <- 1e-1
+    
+    trajectory_modular <- tmp_cluster_final %>%
+      group_by(`1st_network`, Region, Subj_ID, Age_decade, MODULAR) %>%
+      summarise(n = n()) %>%
+      mutate(freq = n / sum(n)) %>%
+      spread(MODULAR, freq) %>%
+      dplyr::select(-n) %>%
+      mutate_all(., ~ replace(., is.na(.), 0)) %>%
+      group_by(`1st_network`, Subj_ID, Age_decade) %>%
+      summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>%
+      ungroup() %>%
+      pivot_longer(cols = !c("1st_network","Subj_ID", "Age_decade"), names_to = "Functional_role", values_to = "freq") %>% 
+      group_by(`1st_network`, Age_decade, Functional_role) %>%
+      summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
+      spread(Functional_role, freq)
+    
+    trajectory_internodal <- tmp_cluster_final %>%
+      group_by(`1st_network`, Region, Subj_ID, Age_decade, INTERNODAL) %>%
+      summarise(n = n()) %>%
+      mutate(freq = n / sum(n)) %>%
+      spread(INTERNODAL, freq) %>%
+      dplyr::select(-n) %>%
+      mutate_all(., ~ replace(., is.na(.), 0)) %>%
+      group_by(`1st_network`, Subj_ID, Age_decade) %>%
+      summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>%
+      ungroup() %>%
+      pivot_longer(cols = !c("1st_network", "Subj_ID",  "Age_decade"), names_to = "Functional_role", values_to = "freq") %>% 
+      group_by(`1st_network`, Age_decade, Functional_role) %>%
+      summarise_at(vars(freq), funs(geomMeanExtension(., epsilon = epsilon))) %>% 
+      spread(Functional_role, freq)
+    
+    TFP_RSN_Age_decade <<- merge(trajectory_modular, trajectory_internodal, by = c("1st_network", "Age_decade")) %>% 
       mutate_at(vars(Connector:Super_Bridge), funs(as.numeric(. * 100)))
   }
 }

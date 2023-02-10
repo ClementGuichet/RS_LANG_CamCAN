@@ -11,7 +11,7 @@ source("_geometricmeanCruz.R")
 # Investigating the evolution of graph-based metrics ----
 ################################################################################
 library(rio)
-TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
+# TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
 
 TFP_General %>%  
   dplyr::select(Subj_ID, Age, Connector, Provincial, Peripheral, Satellite) %>%
@@ -50,8 +50,6 @@ TFP_General %>%
 ################################################################################
 
 data_TFP_analysis <- TFP_General %>% 
-  filter(Age != "NaN") %>%
-  plyr::rename(c("gender_text" = "Gender")) %>%
   mutate(Age_group = ifelse(Age <= 39, "Young", ifelse(Age > 59, "Old", "Middle")))
 
 data_TFP_analysis$Age_group <- factor(data_TFP_analysis$Age_group, levels = c("Young", "Middle", "Old"))
@@ -102,25 +100,7 @@ Rmisc::multiplot(a, b, c)
 #   theme(plot.title = element_text(hjust = 0.5))
 
 
-# Final dataframe with only the subjects of chosen clusters, their hub regions and the RSNs -----
-data_cluster_selection <- function(cluster1, cluster2) {
-  # Retain only the rows specific of the two clusters
-  tmp_cluster_0 <- data_TFP_analysis %>% subset(Age_group == cluster1 | Age_group == cluster2)
-  # Get the associated Resting-state networks
-  tmp_cluster_1 <- filter(data_functional_role, Subj_ID %in% tmp_cluster_0$Subj_ID)
-  # Hub region specific to each subject yielded by hub detection procedure
-  data_hub_selection_per_subject <- rbindlist(Hub_selection)
-  # Select the subjects from the clusters
-  data_hub_selection_cluster <- filter(
-    data_hub_selection_per_subject,
-    Subj_ID %in% tmp_cluster_1$Subj_ID
-  )
-  tmp_cluster_final <<- merge(data_hub_selection_cluster, tmp_cluster_0 %>%
-    dplyr::select(Subj_ID, Age_group),
-  by = "Subj_ID"
-  )
-}
-data_cluster_selection("Young", "Old")
+
 
 ################################################################################
 # Box plot ---------------------------------------------------------------------
@@ -246,33 +226,33 @@ legend(
 ################################################################################
 # Distribution of hubs across RSNs for each cluster for the individual hubs ----
 
-# data_cluster_selection("Young", "Old")
-# 
-# Radar_hub_RSN <-
-#   tmp_cluster_final %>%
-#   group_by(Subj_ID, Age_group, `1st_network`) %>%
-#   summarise(n = n()) %>%
-#   # mutate(freq = n / sum(n)) %>%
-#   # dplyr::select(-n) %>%
-#   group_by(Age_group, `1st_network`) %>%
-#   summarize_at(vars(n), mean) %>%
-#   spread(`1st_network`, n) %>%
-#   remove_rownames() %>%
-#   column_to_rownames("Age_group")
-# # mutate_at(vars(everything()), funs(. * 100))
-# 
-# radarplotting_overlap(Radar_hub_RSN, 30, 0, 1, 1,
-#   alpha = 0.3, label_size = 1,
-#   title_fill = "Distribution of hubs regions across RSNs",
-#   palette = RColorBrewer::brewer.pal(8, "Dark2")
-# )
-# 
-# legend(
-#   x = "topright",
-#   legend = rownames(Radar_hub_RSN), horiz = TRUE,
-#   bty = "n", pch = 20, col = RColorBrewer::brewer.pal(8, "Dark2"),
-#   text.col = "black", cex = 1, pt.cex = 2
-# )
+data_cluster_selection("Young", "Old")
+
+Radar_hub_RSN <-
+  tmp_cluster_final %>%
+  group_by(Subj_ID, Age_group, `1st_network`) %>%
+  summarise(n = n()) %>%
+  # mutate(freq = n / sum(n)) %>%
+  # dplyr::select(-n) %>%
+  group_by(Age_group, `1st_network`) %>%
+  summarize_at(vars(n), mean) %>%
+  spread(`1st_network`, n) %>%
+  remove_rownames() %>%
+  column_to_rownames("Age_group")
+# mutate_at(vars(everything()), funs(. * 100))
+
+radarplotting_overlap(Radar_hub_RSN, 30, 0, 1, 1,
+  alpha = 0.3, label_size = 1,
+  title_fill = "Distribution of hubs regions across RSNs",
+  palette = RColorBrewer::brewer.pal(8, "Dark2")
+)
+
+legend(
+  x = "topright",
+  legend = rownames(Radar_hub_RSN), horiz = TRUE,
+  bty = "n", pch = 20, col = RColorBrewer::brewer.pal(8, "Dark2"),
+  text.col = "black", cex = 1, pt.cex = 2
+)
 # 
 # # Distribution of hubs across communities for each Age_group for the individual hubs ----
 # 
