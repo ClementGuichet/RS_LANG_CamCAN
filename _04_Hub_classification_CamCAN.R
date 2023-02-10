@@ -284,7 +284,7 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
       group_by(Subj_ID) %>% 
       mutate(zBT = as.numeric(scale(Betweenness))) %>%
       mutate(zFlow = as.numeric(scale(Flow_coeff))) %>%
-      mutate(Bridgeness = ifelse(zBT >= 0 & zFlow < 0, "Global_Bridge",
+      mutate(INTERNODAL = ifelse(zBT >= 0 & zFlow < 0, "Global_Bridge",
                                  ifelse(zFlow >= 0 & zBT < 0, "Local_Bridge",
                                         ifelse(zBT >= 0 & zFlow >= 0, "Super_Bridge",
                                                ifelse(zBT < 0 & zFlow < 0, "Not_a_Bridge", 0)
@@ -295,22 +295,22 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
       # mutate(zPC_cons = ifelse(zPC_cons == "NaN", 0, zPC_cons)) %>%
       # 1e-5 to avoid nodes with Wz = 0 to be classified as Connector or Provincial
       # 0 indicates that it forms its own module mathematically speaking
-      mutate(Hub_consensus = ifelse(zPC_cons >= 0 & Within_module_z_cons >= 1e-5, "Connector",
+      mutate(MODULAR = ifelse(zPC_cons >= 0 & Within_module_z_cons >= 1e-5, "Connector",
                                     ifelse(zPC_cons >= 0 & Within_module_z_cons < 1e-5, "Satellite",
                                            ifelse(zPC_cons < 0 & Within_module_z_cons >= 1e-5, "Provincial",
                                                   ifelse(zPC_cons < 0 & Within_module_z_cons < 1e-5, "Peripheral", "Isolate")
                                            )
                                     )
       )) %>%
-      relocate(Subj_ID, .after = "Hub_consensus") %>%
+      relocate(Subj_ID, .after = "MODULAR") %>%
       arrange(Subj_ID, Region) %>%
       ungroup()
     
-    data_functional_role$Hub_consensus <- factor(data_functional_role$Hub_consensus, levels = c(
+    data_functional_role$MODULAR <- factor(data_functional_role$MODULAR, levels = c(
       "Connector", "Provincial", "Satellite", "Peripheral"
     ))
     
-    data_functional_role$Bridgeness <- factor(data_functional_role$Bridgeness, levels = c(
+    data_functional_role$INTERNODAL <- factor(data_functional_role$INTERNODAL, levels = c(
       "Global_Bridge", "Local_Bridge", "Super_Bridge", "Not_a_Bridge"
     ))
     
