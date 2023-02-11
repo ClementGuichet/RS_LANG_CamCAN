@@ -13,37 +13,130 @@ source("_geometricmeanCruz.R")
 library(rio)
 # TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
 
-TFP_General %>%  
-  dplyr::select(Subj_ID, Age, Connector, Provincial, Peripheral, Satellite) %>%
-  pivot_longer(
-    cols = !c("Subj_ID", "Age"),
-    names_to = "Functional_role",
-    values_to = "Score"
-  ) %>%
-  ggplot(aes(Age, Score, color = Functional_role)) +
-  geom_jitter(height = 0.05, alpha = 0.1) +
-  geom_smooth(linewidth = 2, method = "gam") +
-  theme_pubclean() +
-  ggtitle("Evolution of modular functional roles across adult lifespan")
-
 # 2 RECONFIGURATION MECHANISM
 # Integration within module and integration between modules
 
 # MECHANISM WITHIN:  Satellite reconfigure into Connectors or Peripheral, meaning they either get integrated into a module or left on their own
 # MECHANISM BETWEEN: Half of Provincial hubs reconfigure into Connector
 
-TFP_General %>% 
-  dplyr::select(Subj_ID, Age, Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
+epsilon <- 1e-1
+
+geometric_all <- TFP_General %>% 
+  summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
+
+TFP_General %>%  
+  mutate(Connector = log(Connector / geometric_all$Connector)) %>%
+  mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
+  mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
+  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) %>%
+  dplyr::select(Subj_ID, Age, Connector:Satellite) %>%
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
     names_to = "Functional_role",
     values_to = "Score"
   ) %>%
   ggplot(aes(Age, Score, color = Functional_role)) +
+  geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.1) +
-  geom_smooth(linewidth = 2, method = "gam") +
-  theme_pubclean() +
-  ggtitle("Evolution of interareal functional roles across adult lifespan")
+  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.2)) +
+  scale_color_brewer(palette = "PuOr") +
+  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
+  theme_pubr() +
+  ggtitle("Evolution of modular functional roles across adult lifespan")
+
+TFP_General %>%  
+  mutate(Global_Bridge = log(Global_Bridge / geometric_all$Global_Bridge)) %>%
+  mutate(Local_Bridge = log(Local_Bridge / geometric_all$Local_Bridge)) %>%
+  mutate(Super_Bridge = log(Super_Bridge / geometric_all$Super_Bridge)) %>%
+  mutate(Not_a_Bridge = log(Not_a_Bridge / geometric_all$Not_a_Bridge)) %>%
+  dplyr::select(Subj_ID, Age, Global_Bridge:Super_Bridge) %>%
+  pivot_longer(
+    cols = !c("Subj_ID", "Age"),
+    names_to = "Functional_role",
+    values_to = "Score"
+  ) %>%
+  ggplot(aes(Age, Score, color = Functional_role)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.2)) +
+  scale_color_brewer(palette = "PuOr") +
+  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
+  theme_pubr() +
+  ggtitle("Evolution of internodal functional roles across adult lifespan") +
+  facet_wrap(~Functional_role)
+
+
+################################################################################
+list_TFP_RSN <- TFP_RSN %>% 
+  group_by(`1st_network`) %>% group_split()
+
+list_tmp <- list()
+for (i in 1:length(list_TFP_RSN)) {
+  library(zCompositions)
+  
+  tmp_raw <- rbindlist(list_TFP_RSN[i]) %>% arrange(Subj_ID) 
+  
+  tmp_coda_modular <- tmp_raw %>%
+    dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
+    acomp(.) %>% 
+    # Preserves the ratios between non-zero components
+    cmultRepl(., output = "prop")
+  
+  tmp_coda_interareal <- tmp_raw %>%
+    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
+    acomp(.) %>%
+    cmultRepl(., output = "prop")
+  
+  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(Subj_ID, `1st_network`, Age),
+                           tmp_coda_modular, 
+                           tmp_coda_interareal)
+  
+  tmp_geometric_all <- tmp_raw_imputed %>% 
+    summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
+  
+  tmp_final <- tmp_raw_imputed %>% 
+    mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
+    mutate(Provincial = log(Provincial / tmp_geometric_all$Provincial)) %>%
+    mutate(Satellite = log(Satellite / tmp_geometric_all$Satellite)) %>%
+    mutate(Peripheral = log(Peripheral / tmp_geometric_all$Peripheral)) %>% 
+    mutate(Global_Bridge = log(Global_Bridge / tmp_geometric_all$Global_Bridge)) %>%
+    mutate(Local_Bridge = log(Local_Bridge / tmp_geometric_all$Local_Bridge)) %>%
+    mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
+    mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
+  
+  list_tmp[[i]] <- tmp_final
+}
+
+plot_TFP_RSN <- rbindlist(list_tmp)
+
+
+RSN <- "DMN"
+
+plot_TFP_RSN %>% 
+  filter(grepl(RSN, `1st_network`)) %>% 
+  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+  pivot_longer(
+    cols = !c("Subj_ID", "Age"),
+    names_to = "Functional_role",
+    values_to = "Score"
+  ) %>%
+  ggplot(aes(Age, Score, color = Functional_role)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(-0.5, 0.5, 0.1)) +
+  coord_cartesian(ylim = c(-0.5, 0.5)) +
+  scale_color_brewer(palette = "PuOr") +
+  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
+  theme_pubr() +
+  ggtitle("Evolution of modular functional roles across adult lifespan")
 
 ################################################################################
 # DESCRIPTIVES
