@@ -5,128 +5,7 @@
 ##########################################################################################
 source("_06_TFProfile_CamCAN.R")
 
-# 2 RECONFIGURATION MECHANISM
-# Integration within module and integration between modules
 
-# MECHANISM WITHIN:  Satellite reconfigure into Connectors or Peripheral, meaning they either get integrated into a module or left on their own
-# MECHANISM BETWEEN: Half of Provincial hubs reconfigure into Connector
-
-geometric_all <- TFP_General %>% 
-  summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
-
-TFP_General %>%  
-  mutate(Connector = log(Connector / geometric_all$Connector)) %>%
-  mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
-  mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
-  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) %>%
-  dplyr::select(Subj_ID, Age, Connector:Satellite) %>%
-  pivot_longer(
-    cols = !c("Subj_ID", "Age"),
-    names_to = "Functional_role",
-    values_to = "Score"
-  ) %>%
-  ggplot(aes(Age, Score, color = Functional_role)) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.1) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
-  scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
-  ggtitle("Evolution of modular functional roles across adult lifespan")
-
-TFP_General %>%  
-  mutate(Global_Bridge = log(Global_Bridge / geometric_all$Global_Bridge)) %>%
-  mutate(Local_Bridge = log(Local_Bridge / geometric_all$Local_Bridge)) %>%
-  mutate(Super_Bridge = log(Super_Bridge / geometric_all$Super_Bridge)) %>%
-  mutate(Not_a_Bridge = log(Not_a_Bridge / geometric_all$Not_a_Bridge)) %>%
-  dplyr::select(Subj_ID, Age, Global_Bridge:Super_Bridge) %>%
-  pivot_longer(
-    cols = !c("Subj_ID", "Age"),
-    names_to = "Functional_role",
-    values_to = "Score"
-  ) %>%
-  ggplot(aes(Age, Score, color = Functional_role)) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.1) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
-  scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
-  ggtitle("Evolution of internodal functional roles across adult lifespan") +
-  facet_wrap(~Functional_role)
-
-
-################################################################################
-list_TFP_RSN <- TFP_RSN %>% 
-  group_by(`1st_network`) %>% group_split()
-  
-list_tmp <- list()
-for (i in 1:length(list_TFP_RSN)) {
-  library(compositions)
-  
-  tmp_raw <- rbindlist(list_TFP_RSN[i]) %>% arrange(Subj_ID) 
-  
-  tmp_coda_modular <- tmp_raw %>%
-    dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
-    acomp(.) %>% 
-    # Preserves the ratios between non-zero components
-    cmultRepl(., output = "prop")
-  
-  tmp_coda_interareal <- tmp_raw %>%
-    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
-    acomp(.) %>%
-    cmultRepl(., output = "prop")
-  
-  tmp_geometric_all <- tmp_raw_imputed %>% 
-    summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
-  
-  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(Subj_ID, `1st_network`, Age),
-                               tmp_coda_modular, 
-                               tmp_coda_interareal)
-  
-  tmp_final <- tmp_raw_imputed %>% 
-    mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
-    mutate(Provincial = log(Provincial / tmp_geometric_all$Provincial)) %>%
-    mutate(Satellite = log(Satellite / tmp_geometric_all$Satellite)) %>%
-    mutate(Peripheral = log(Peripheral / tmp_geometric_all$Peripheral)) %>% 
-    mutate(Global_Bridge = log(Global_Bridge / tmp_geometric_all$Global_Bridge)) %>%
-    mutate(Local_Bridge = log(Local_Bridge / tmp_geometric_all$Local_Bridge)) %>%
-    mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
-    mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
-    
-  list_tmp[[i]] <- tmp_final
-}
-
-plot_TFP_RSN <- rbindlist(list_tmp)
-
-
-RSN <- "SMN"
-
-plot_TFP_RSN %>% 
-  filter(grepl(RSN, `1st_network`)) %>% 
-  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
-  pivot_longer(
-    cols = !c("Subj_ID", "Age"),
-    names_to = "Functional_role",
-    values_to = "Score"
-  ) %>%
-  ggplot(aes(Age, Score, color = Functional_role)) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.1) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
-  scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-1, 1, 0.1)) +
-  coord_cartesian(ylim = c(-1, 1)) +
-  scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
-  ggtitle("Evolution of modular functional roles across adult lifespan")
 ################################################################################
 # DESCRIPTIVES
 ################################################################################
@@ -142,6 +21,7 @@ CAMCAN_cognitive_data <- read_excel("meta_data_628/CognitiveData_CamCAN_Apr2022.
   dplyr::select(c(
     Observations,
     Age_CogData,
+    MMSE,
     # Cattell Fluid intelligence
     Cattell,
     # Proverb comprehension (abstraction & EF)
@@ -153,7 +33,8 @@ CAMCAN_cognitive_data <- read_excel("meta_data_628/CognitiveData_CamCAN_Apr2022.
   )) %>%
   dplyr::rename(Proverb = Proverbs_Summary__Score) %>% 
   dplyr::rename(Picture_Priming = Picture__Primming_Summary_ACC_baseline_all) %>%
-  dplyr::rename(ToT_Ratio = TOT_Summary_ToT_ratio)
+  dplyr::rename(ToT_Ratio = TOT_Summary_ToT_ratio) %>% 
+  mutate_at(vars(MMSE), funs(as.numeric(.)))
 
 CAMCAN_cognitive_data_supp <- read_excel("meta_data_628/CognitiveData_CamCAN_Supplement.xlsx") %>% 
   filter(Observations %in% participants$Observations) %>%
@@ -169,7 +50,7 @@ CAMCAN_cognitive_data_supp <- read_excel("meta_data_628/CognitiveData_CamCAN_Sup
 
 All_data <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>% 
   merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>% 
-  merge(., data_TFP_analysis, by = "Subj_ID")
+  merge(., TFP_General, by = "Subj_ID")
 
 ################################################################################
 # ILR TRANSFORMATION 
@@ -244,9 +125,10 @@ Cog_data_ILR <- data_coda_all %>%
 ################################################################################
 library(CCA)
 library(CCP)
+library(flexplot)
 
 Data_CCA <- Cog_data_ILR %>% na.omit() %>% 
-  dplyr::select(Cattell, ToT_Ratio_inverse, Hotel_Task_inverse,
+  dplyr::select(MMSE, Cattell, ToT_Ratio_inverse, Hotel_Task_inverse,
                 Sentence_Comprehension_c, Verbal_Fluency, Proverb, Story_Recall,
                 Picture_Priming,
                 
@@ -254,9 +136,9 @@ Data_CCA <- Cog_data_ILR %>% na.omit() %>%
                 Age
                 )
 
-cog_measures <- Data_CCA[,1:8] %>% scale(.) %>% as.data.frame()
+cog_measures <- Data_CCA[,1:9] %>% scale(.) %>% as.data.frame()
 
-rs_measures <- Data_CCA[,9:11] %>% scale(.) %>% as.data.frame()
+rs_measures <- Data_CCA[,c(10, 12)] %>% scale(.) %>% as.data.frame()
 
 # Relationship between topological integrative mechanisms and Efficiency is fully mediated by Age
 # med <- robmed::test_mediation(Balance_eff~m(Age) + ilr_modular_1, data = Data_CCA, robust = "MM")
@@ -282,7 +164,7 @@ flexplot(Behavioral_Mode~Age, cca_df, method = "lm")
 flexplot(Brain_Mode~Age, cca_df, method = "lm")
 
 
-p <- cca_df %>% 
+cca_df %>% 
   ggplot(aes(x=Brain_Mode, Behavioral_Mode))+
   geom_hline(yintercept =0, color = "gray") +
   geom_vline(xintercept =0, color = "gray") +
@@ -298,41 +180,6 @@ p <- cca_df %>%
            color = "black", size = 4
   ) +
   theme(plot.title.position = "plot")
-
-p
-# plotly::ggplotly(p)
-
-flexplot(Behavioral_Mode~Brain_Mode + Age_group, cca_df, method = "lm")
-
-
-library(widyr)
-library(ggraph)
-library(igraph)
-
-adjacency_to_2col <- function(data) {
-  crossdata <- lapply(rownames(data), function(x) sapply(colnames(data), function(y) list(x, y, data[x, y])))
-  crossdatatmp <- matrix(unlist(crossdata), nrow = 3)
-  crossdatamat <- t(crossdatatmp)
-  crossdatadf <- as.data.frame(crossdatamat, stringsAsFactors = F)
-  crossdatadf[, 3] <- as.numeric(crossdatadf[, 3])
-  return(crossdatadf %>% na.omit())
-}
-
-correlations <- 
-  desc_cca$XYcor %>% as.data.frame() %>% 
-  adjacency_to_2col(.) %>% 
-  rename(c("V3" = "correlation")) %>% 
-  filter(correlation != 1) %>% 
-  arrange(correlation)
-
-correlations %>% 
-  head(30) %>% 
-  graph_from_data_frame() %>% 
-  ggraph() +
-  geom_edge_link(aes(edge_alpha = correlation)) +
-  geom_node_point() +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  theme_pubclean()
 
 # Canonical loadings - correlation between variables and canonical variates
 cc_loadings <- cc(rs_measures, cog_measures)
@@ -351,6 +198,35 @@ q <- length(cog_measures)
 p.asym(rho, n, p, q, tstat = "Wilks")
 
 
+library(widyr)
+library(ggraph)
+library(igraph)
+
+adjacency_to_2col <- function(data) {
+  crossdata <- lapply(rownames(data), function(x) sapply(colnames(data), function(y) list(x, y, data[x, y])))
+  crossdatatmp <- matrix(unlist(crossdata), nrow = 3)
+  crossdatamat <- t(crossdatatmp)
+  crossdatadf <- as.data.frame(crossdatamat, stringsAsFactors = F)
+  crossdatadf[, 3] <- as.numeric(crossdatadf[, 3])
+  return(crossdatadf %>% na.omit())
+}
+
+correlations <- 
+  desc_cca$XYcor %>% as.data.frame() %>% 
+  adjacency_to_2col(.) %>% 
+  plyr::rename(c("V3" = "correlation")) %>% 
+  filter(correlation != 1) %>% 
+  mutate(corr_abs = abs(correlation)) %>% 
+  arrange(desc(corr_abs))
+
+correlations %>% 
+  head(length(correlations$corr_abs)*.8) %>% 
+  graph_from_data_frame(directed = TRUE) %>% 
+  ggraph() +
+  geom_edge_link(aes(edge_alpha = correlation)) +
+  geom_node_point() +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme_pubclean()
 
 ################################################################################
 # MEDIATION ANALYSIS
@@ -412,7 +288,7 @@ mod4 <- lm(Behavioral_Mode~ Brain_Mode + Age, cca_df)
 summary(mod4)
 performance::check_model(mod4)
 # --> Partial mediation
-flexplot(Behavioral_Mode~Brain_Mode + Age, cca_df, method = "lm")
+flexplot(Behavioral_Mode~Age + Brain_Mode, cca_df, method = "lm")
 
 
 cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age) %>% scale(.) %>% as.data.frame()
@@ -426,16 +302,39 @@ library(sem)
 library(semPlot)
 
 mod <- "
-  Behavioral_Mode ~ dir*Age
-  Brain_Mode ~ ind1*Age
-  Behavioral_Mode ~ ind2*Brain_Mode
-  mediation := ind1*ind2
-  direct := dir
-  total := (ind1*ind2) + dir
+  Brain_Mode ~ a*Age
+  Behavioral_Mode ~ c1*Age + b*Brain_Mode
+  indirect := a*b
+  direct := c1
+  total := direct + indirect
 "
 
 fit <- lavaan::sem(mod, data = cca_df_med)
 
 summary(fit, standardized = FALSE, fit.measures = TRUE, rsquare = TRUE, ci = TRUE)
 parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized = FALSE)
-# semPaths(fit, "std", layout = "tree2", edge.label.cex = 1.25, fade = TRUE)
+semPaths(fit, "std", layout = "tree", edge.label.cex = 1.25, fade = TRUE)
+
+mod_moderated <- "
+  Behavioral_Mode ~ c1*Age + b*Brain_Mode  + w1*Age:Brain_Mode
+  direct := c1
+  total := direct + b + w1
+"
+
+fit_moderated <- lavaan::sem(mod_moderated, data = cca_df_med)
+
+mod__mediated_moderated <- "
+  Brain_Mode ~ a*Age
+  Behavioral_Mode ~ c1*Age + b*Brain_Mode + w1*Age:Brain_Mode
+  indirect := a*b
+  indirect_moderated := indirect + w1
+  direct := c1
+  total := direct + indirect
+  total_moderated := total + w1
+"
+
+fit_mediated_moderated <- lavaan::sem(mod__mediated_moderated, data = cca_df_med)
+
+anova(fit, fit_moderated, fit_mediated_moderated)
+
+
