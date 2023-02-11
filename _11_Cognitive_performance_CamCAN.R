@@ -32,7 +32,7 @@ CAMCAN_cognitive_data <- read_excel("meta_data_628/CognitiveData_CamCAN_Apr2022.
     TOT_Summary_ToT_ratio
   )) %>%
   dplyr::rename(Proverb = Proverbs_Summary__Score) %>% 
-  dplyr::rename(Picture_Priming = Picture__Primming_Summary_ACC_baseline_all) %>%
+  dplyr::rename(Naming = Picture__Primming_Summary_ACC_baseline_all) %>%
   dplyr::rename(ToT_Ratio = TOT_Summary_ToT_ratio) %>% 
   mutate_at(vars(MMSE), funs(as.numeric(.)))
 
@@ -50,47 +50,27 @@ CAMCAN_cognitive_data_supp <- read_excel("meta_data_628/CognitiveData_CamCAN_Sup
 
 All_data <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>% 
   merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>% 
-  merge(., TFP_General, by = "Subj_ID")
+  merge(., TFP_General_imputed, by = "Subj_ID")
 
 ################################################################################
 # ILR TRANSFORMATION 
 ################################################################################
-library(zCompositions)
-library(compositions)
 
-data_coda_modular <- All_data %>%
-  dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
-  acomp(.) %>% 
-  # Preserves the ratios between non-zero components
-  cmultRepl(., output = "prop")
-
-data_coda_interareal <- All_data %>%
-  dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
-  acomp(.) %>% 
-  cmultRepl(., output = "prop")
-
-data_coda_all <- cbind(data_coda_modular, data_coda_interareal,
-                       All_data %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
-                                                    Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)))
-
-Cog_data_ILR <- data_coda_all %>%  
+Cog_data_ILR <- All_data %>%  
   
   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>% 
   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>%
   
   mutate(ilr_modular_all_1 = (((4/4)^0.5)*log((Connector*Peripheral)^0.5/(Provincial*Satellite)^0.5))) %>% 
-  mutate(ilr_modular_all_2 = (((4/4)^0.5)*log((Connector*Satellite)^0.5/(Peripheral*Provincial)^0.5))) %>% 
+  # # Inter-modular integration
+  # mutate(ilr_modular_1 = (((1/2)^0.5)*log(Connector/(Provincial)))) %>%
+  # 
+  # # Intra-module integration
+  # mutate(ilr_modular_2 = (((2/3)^0.5)*log((Connector*Peripheral)^0.5/(Satellite)))) %>% 
   
-  # Inter-modular integration
-  mutate(ilr_modular_1 = (((1/2)^0.5)*log(Connector/(Provincial)))) %>%
+  mutate(ilr_internodal_all_1 = (((4/4)^0.5)*log((Global_Bridge*Local_Bridge)/((Super_Bridge*Not_a_Bridge)^0.5))))
 
-  # Intra-module integration
-  mutate(ilr_modular_2 = (((2/3)^0.5)*log((Connector*Peripheral)^0.5/(Satellite)))) %>% 
-  
-  mutate(ilr_internodal_all_1 = (((3/4)^0.5)*log((Global_Bridge)/((Super_Bridge*Not_a_Bridge*Local_Bridge)^(1/3))))) %>%  
-  mutate(ilr_internodal_all_2 = (((2/3)^0.5)*log((Not_a_Bridge)/((Super_Bridge*Local_Bridge)^(1/2))))) 
 
-  
 # cor_data <- Cog_data_ILR %>% dplyr::select(ilr_modular_1, ilr_modular_2, ilr_internodal,
 #                                       # Cattell Fluid intelligence
 #                                       Cattell,
@@ -99,7 +79,7 @@ Cog_data_ILR <- data_coda_all %>%
 #                                       # Proverb comprehension (abstraction & EF)
 #                                       Proverb,
 #                                       # Picture-picture priming (word production)
-#                                       Picture_Priming,
+#                                       Naming,
 #                                       # Sentence comprehension
 #                                       Sentence_Comprehension_c,
 #                                       # Tip-of-the-tongue
@@ -116,9 +96,6 @@ Cog_data_ILR <- data_coda_all %>%
 # test
 # print(test, short = FALSE)
 
-# lm(ilr_internodal~Age, Cog_data_ILR) %>% summary()
-# flexplot(ilr_internodal~Age, Cog_data_ILR, method = "lm")
-
 
 ################################################################################
 # CANONICAL CORRELATION  ANALYSIS
@@ -130,15 +107,35 @@ library(flexplot)
 Data_CCA <- Cog_data_ILR %>% na.omit() %>% 
   dplyr::select(MMSE, Cattell, ToT_Ratio_inverse, Hotel_Task_inverse,
                 Sentence_Comprehension_c, Verbal_Fluency, Proverb, Story_Recall,
-                Picture_Priming,
+                Naming,
                 
-                ilr_modular_all_1, ilr_modular_all_2, ilr_internodal_all_1, ilr_internodal_all_2,
+                ilr_modular_all_1, ilr_internodal_all_1,
                 Age
                 )
 
 cog_measures <- Data_CCA[,1:9] %>% scale(.) %>% as.data.frame()
 
-rs_measures <- Data_CCA[,c(10, 12)] %>% scale(.) %>% as.data.frame()
+rs_measures <- Data_CCA[,10:11] %>% scale(.) %>% as.data.frame()
+
+Data_CCA %>% pivot_longer(
+  MMSE:Naming,
+  names_to = "Cognitive_assessment",
+  values_to = "performance"
+) %>% 
+  group_by(Cognitive_assessment) %>% 
+  mutate(performance = as.numeric(scale(performance))) %>%  
+  ggplot(aes(Age, performance, color = Cognitive_assessment)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  coord_cartesian(ylim = c(-1, 1)) +
+  scale_color_brewer(palette = "Paired") +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Normalized score") +
+  ggtitle("Cognitive performances across the adult lifespan") +
+  facet_wrap(~Cognitive_assessment, scale = "free")
 
 # Relationship between topological integrative mechanisms and Efficiency is fully mediated by Age
 # med <- robmed::test_mediation(Balance_eff~m(Age) + ilr_modular_1, data = Data_CCA, robust = "MM")
@@ -176,7 +173,7 @@ cca_df %>%
   labs(x = "Brain Mode\n (Functional Segregation - Integration)", y = "Behavioral Mode\n (Worse - Better performance)",
        title = "Canonical correlation between brain/behavioral modes") + 
   annotate("text", fontface = "bold",
-           x = -0.075, y = -0.13, label = "Correlation = .32\n Wilks'Lambda: 0.86, F(32, 2074) = 2.65, p < .001",
+           x = -0.12, y = -0.13, label = "Correlation = .3\n Wilks'Lambda: 0.9, F(18, 1124) = 3.28, p < .001",
            color = "black", size = 4
   ) +
   theme(plot.title.position = "plot")
@@ -197,6 +194,38 @@ q <- length(cog_measures)
 ## Calculate p-values using the F-approximations of different test statistics:
 p.asym(rho, n, p, q, tstat = "Wilks")
 
+
+plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame() %>% 
+  rownames_to_column("Balances") %>% 
+  plyr::rename(c("." = "loading")) %>% 
+  arrange(loading)
+
+plot_loadings_x$Balances <- factor(plot_loadings_x$Balances) %>%
+  fct_reorder(plot_loadings_x$loading, .desc = FALSE)
+
+loadings_x <- ggplot(plot_loadings_x, aes(x = Balances, y = loading))+
+  geom_col(aes(fill = loading), alpha = .8) +
+  scale_fill_distiller(palette = "Oranges", direction = 1) +
+  coord_flip() +
+  labs(y = "Loadings", x = element_blank()) + 
+  theme_pubr(base_size = 18)
+
+plot_loadings_y <- cc_loadings$scores$corr.Y.yscores[,1] %>% as.data.frame() %>% 
+  rownames_to_column("Cognitive_assessment") %>% 
+  plyr::rename(c("." = "loading")) %>% 
+  arrange(loading)
+
+plot_loadings_y$Cognitive_assessment <- factor(plot_loadings_y$Cognitive_assessment) %>%
+  fct_reorder(plot_loadings_y$loading, .desc = TRUE)
+
+loadings_y <- ggplot(plot_loadings_y, aes(x = Cognitive_assessment, y = loading))+
+  geom_col(aes(fill = loading), alpha = .8) +
+  scale_fill_distiller(palette = "Oranges", direction = -1) +
+  coord_flip() +
+  labs(y = "Loadings", x = element_blank()) + 
+  theme_pubr(base_size = 18)
+
+gridExtra::grid.arrange(loadings_x, loadings_y, nrow = 1)
 
 library(widyr)
 library(ggraph)
@@ -222,7 +251,7 @@ correlations <-
 correlations %>% 
   head(length(correlations$corr_abs)*.8) %>% 
   graph_from_data_frame(directed = TRUE) %>% 
-  ggraph() +
+  ggraph(layout = "auto") +
   geom_edge_link(aes(edge_alpha = correlation)) +
   geom_node_point() +
   geom_node_text(aes(label = name), repel = TRUE) +
@@ -235,7 +264,7 @@ correlations %>%
 library(robustbase)
 library(robmed)
 
-# mod1 <- lmrob(scale(Picture_Priming)~ scale(ilr_modular_1)*scale(Age), data = Cog_data_ILR, method = "MM")
+# mod1 <- lmrob(scale(Naming)~ scale(ilr_modular_1)*scale(Age), data = Cog_data_ILR, method = "MM")
 # summary(mod1)
 # 
 # plot_bin <- Cog_data_ILR %>% 
@@ -243,7 +272,7 @@ library(robmed)
 #   mutate(
 #   bin_modular = ifelse(ilr_modular_1 < quantile(.$ilr_modular_1)[3], "+Provincial","+Connector")
 # )
-# flexplot(Picture_Priming~ Age + bin_modular, plot_bin, method = "lm")
+# flexplot(Naming~ Age + bin_modular, plot_bin, method = "lm")
 # 
 # # Individuals who are older have significantly worse performances in the Picture priming task (i.e., word production). 
 # # Moreover, there was a significant interaction with the modular balance such that having more Connector than Provincial hubs
@@ -252,10 +281,10 @@ library(robmed)
 # # 
 # # In short, functional disorganization of the language connectome is linked with a faster decline in word production across the lifespan
 # 
-# mod1 <- lmrob(scale(Picture_Priming)~ scale(ilr_modular_2)*scale(Age), data = Cog_data_ILR, method = "MM")
+# mod1 <- lmrob(scale(Naming)~ scale(ilr_modular_2)*scale(Age), data = Cog_data_ILR, method = "MM")
 # summary(mod1)
 # 
-# flexplot(Picture_Priming~ Age + ilr_modular_2, Cog_data_ILR, method = "lm")
+# flexplot(Naming~ Age + ilr_modular_2, Cog_data_ILR, method = "lm")
 # 
 # 
 # # Same thing but point of inflexion is at 40 rather than at 60

@@ -10,31 +10,39 @@ source("_geometricmeanCruz.R")
 ################################################################################
 # Investigating the evolution of graph-based metrics ----
 ################################################################################
-library(rio)
+# library(rio)
 # TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
 
-# 2 RECONFIGURATION MECHANISM
-# Integration within module and integration between modules
+tmp_coda_modular <- TFP_General %>%
+  dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
+  acomp(.) %>% 
+  # Preserves the ratios between non-zero components
+  cmultRepl(., output = "prop")
 
-# MECHANISM WITHIN:  Satellite reconfigure into Connectors or Peripheral, meaning they either get integrated into a module or left on their own
-# MECHANISM BETWEEN: Half of Provincial hubs reconfigure into Connector
+tmp_coda_internodal <- TFP_General %>%
+  dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
+  acomp(.) %>%
+  cmultRepl(., output = "prop")
 
-epsilon <- 1e-1
+TFP_General_imputed <- cbind(TFP_General %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
+                                                              Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)),
+                         tmp_coda_modular, 
+                         tmp_coda_internodal)
 
-geometric_all <- TFP_General %>% 
-  summarize_at(vars(Connector:Super_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
+geometric_all <- TFP_General_imputed %>% 
+  summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
 
-TFP_General %>%  
+TFP_General_imputed %>%  
   mutate(Connector = log(Connector / geometric_all$Connector)) %>%
   mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
   mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
   mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) %>%
-  dplyr::select(Subj_ID, Age, Connector:Satellite) %>%
+  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>% 
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
     names_to = "Functional_role",
     values_to = "Score"
-  ) %>%
+  ) %>% 
   ggplot(aes(Age, Score, color = Functional_role)) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.1) +
@@ -44,15 +52,19 @@ TFP_General %>%
   coord_cartesian(ylim = c(-0.2, 0.2)) +
   scale_color_brewer(palette = "PuOr") +
   geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Centered log-ratios") +
+  
   ggtitle("Evolution of modular functional roles across adult lifespan")
 
-TFP_General %>%  
+
+TFP_General_imputed %>%  
   mutate(Global_Bridge = log(Global_Bridge / geometric_all$Global_Bridge)) %>%
   mutate(Local_Bridge = log(Local_Bridge / geometric_all$Local_Bridge)) %>%
   mutate(Super_Bridge = log(Super_Bridge / geometric_all$Super_Bridge)) %>%
   mutate(Not_a_Bridge = log(Not_a_Bridge / geometric_all$Not_a_Bridge)) %>%
-  dplyr::select(Subj_ID, Age, Global_Bridge:Super_Bridge) %>%
+  dplyr::select(Subj_ID, Age, Global_Bridge:Not_a_Bridge) %>%
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
     names_to = "Functional_role",
@@ -67,9 +79,12 @@ TFP_General %>%
   coord_cartesian(ylim = c(-0.2, 0.2)) +
   scale_color_brewer(palette = "PuOr") +
   geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
-  ggtitle("Evolution of internodal functional roles across adult lifespan") +
-  facet_wrap(~Functional_role)
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Centered log-ratios") +
+  
+  ggtitle("Evolution of internodal functional roles across adult lifespan")
+  # facet_wrap(~Functional_role)
 
 
 ################################################################################
@@ -83,22 +98,35 @@ for (i in 1:length(list_TFP_RSN)) {
   tmp_raw <- rbindlist(list_TFP_RSN[i]) %>% arrange(Subj_ID) 
   
   tmp_coda_modular <- tmp_raw %>%
-    dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
-    acomp(.) %>% 
-    # Preserves the ratios between non-zero components
-    cmultRepl(., output = "prop")
+    dplyr::select(Connector, Satellite, Provincial, Peripheral)
   
-  tmp_coda_interareal <- tmp_raw %>%
-    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
-    acomp(.) %>%
-    cmultRepl(., output = "prop")
+  if (min(tmp_coda_modular) == 0) {
+    tmp_coda_modular_bis <- tmp_coda_modular %>% 
+      acomp(.) %>% 
+      cmultRepl(., output = "prop")
+  } else {
+    tmp_coda_modular_bis <- tmp_coda_modular
+  }
   
-  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(Subj_ID, `1st_network`, Age),
-                           tmp_coda_modular, 
-                           tmp_coda_interareal)
+  
+  tmp_coda_internodal <- tmp_raw %>%
+    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
+  
+  if (min(tmp_coda_internodal) == 0) {
+    tmp_coda_internodal_bis <- tmp_coda_internodal %>% 
+      acomp(.) %>%
+      cmultRepl(., output = "prop")
+  } else {
+    tmp_coda_internodal_bis <- tmp_coda_internodal
+  }
+  
+  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
+                                                        Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)),
+                           tmp_coda_modular_bis, 
+                           tmp_coda_internodal_bis)
   
   tmp_geometric_all <- tmp_raw_imputed %>% 
-    summarize_at(vars(Connector:Not_a_Bridge), funs(geomMeanExtension(., epsilon = epsilon)))
+    summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
   
   tmp_final <- tmp_raw_imputed %>% 
     mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
@@ -120,22 +148,24 @@ RSN <- "DMN"
 
 plot_TFP_RSN %>% 
   filter(grepl(RSN, `1st_network`)) %>% 
-  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+  # dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+  dplyr::select(Subj_ID, Age, Global_Bridge:Not_a_Bridge) %>% 
   pivot_longer(
     cols = !c("Subj_ID", "Age"),
     names_to = "Functional_role",
     values_to = "Score"
-  ) %>%
+  ) %>% 
   ggplot(aes(Age, Score, color = Functional_role)) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.1) +
   geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
   scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-0.5, 0.5, 0.1)) +
-  coord_cartesian(ylim = c(-0.5, 0.5)) +
+  scale_y_continuous(breaks = seq(-1, 1, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.2)) +
   scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
-  theme_pubr() +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Centered log-ratios") +
   ggtitle("Evolution of modular functional roles across adult lifespan")
 
 ################################################################################
