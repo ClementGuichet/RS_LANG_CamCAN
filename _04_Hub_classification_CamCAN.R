@@ -176,7 +176,27 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     setwd(str_replace(getwd(), "\\/OMST", ""))
   } else if (filtering_scheme == "proportional") {
     setwd(paste0(getwd(), "/data_graphvar_T1"))
+    
+    ############################################################################
+    # GRADIENT ----
+    ############################################################################
+    
+    gradient <- as.data.frame(fromJSON("Gradients_holdout_sample.json")) %>% 
+      dplyr::rename(G1 = colnames(.)[1])
+    
+    Region <- unique(data_full$Region) %>% as.data.frame() %>% 
+      dplyr::rename(Region = colnames(.)[1])
+    
+    gradient_labeled <-  cbind(gradient, Region) %>% as.data.frame() %>% 
+      relocate(Region)  
+      # pivot_longer(cols = !c("Region"), names_to = "Subj_ID", values_to = "G1") %>% 
+      # replace("Subj_ID", rep(seq_len(628), times = 131))
+    
+    data_full <- merge(data_full, gradient_labeled, by = c("Region"))
+    
+    ############################################################################
     # YOUNG ----
+    ############################################################################
     
     PC_consensus <- as.data.frame(fromJSON("Young_PC_norm.json")) %>%
       mutate(Subj_ID = rep(seq_len(167))) %>%
@@ -209,8 +229,9 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     
     data_young <- data_bind_PC_Wz 
     
-    
+    ############################################################################
     # MIDDLE ----
+    ############################################################################
     
     PC_consensus <- as.data.frame(fromJSON("Middle_PC_norm.json")) %>% 
       mutate(Subj_ID = rep(seq_len(201))) %>%
@@ -243,8 +264,9 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     
     data_middle <- data_bind_PC_Wz
     
-    
+    ############################################################################
     # OLD ----
+    ############################################################################
     
     PC_consensus <- as.data.frame(fromJSON("Old_PC_norm.json")) %>%
       mutate(Subj_ID = rep(seq_len(260))) %>%
@@ -278,8 +300,12 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     
     data_old <- data_bind_PC_Wz
     
-    
+    ############################################################################
+    ############################################################################
     # Putting it all together ----
+    ############################################################################
+    ############################################################################
+    
     data_functional_role <<- rbind(data_young, data_middle, data_old) %>% 
       group_by(Subj_ID) %>% 
       mutate(zBT = as.numeric(scale(Betweenness))) %>%

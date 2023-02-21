@@ -154,7 +154,7 @@ data_wrangling <- function(n_subj, n_threshold, filtering_scheme = NULL) {
     # Degree centrality-------------------------------
     listfile_degree <- listfile[grep("degrees", listfile)]
     
-    degree <<- ldply(listfile_degree, read.table, header = T, sep = "\t") %>% 
+    degree <- ldply(listfile_degree, read.table, header = T, sep = "\t") %>% 
       mutate(threshold = rep(c(.1, .12, .15, .17, .2), each = n_subj)) %>%
       relocate(threshold, .after = (X)) %>%
       rename(Subj_ID = X) %>% 

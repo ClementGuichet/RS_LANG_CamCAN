@@ -11,14 +11,14 @@ library(gbmt)
 ################################################################################
 ################################################################################
 
-list_TFP_RSN_Age <- TFP_RSN_Age %>% 
+list_TFP_RSN_Age_group <- TFP_RSN_Age_group %>% 
   group_by(`1st_network`) %>% group_split()
 
-list_tmp_Age <- list()
-for (i in 1:length(list_TFP_RSN_Age)) {
+list_tmp_Age_group <- list()
+for (i in 1:length(list_TFP_RSN_Age_group)) {
   library(zCompositions)
   
-  tmp_raw <- rbindlist(list_TFP_RSN_Age[i]) %>% arrange(Age) 
+  tmp_raw <- rbindlist(list_TFP_RSN_Age_group[i]) %>% arrange(Age_group) 
   
   tmp_coda_modular <- tmp_raw %>%
     dplyr::select(Connector, Satellite, Provincial, Peripheral)
@@ -61,10 +61,10 @@ for (i in 1:length(list_TFP_RSN_Age)) {
     mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
     mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
   
-  list_tmp_Age[[i]] <- tmp_final
+  list_tmp_Age_group[[i]] <- tmp_final
 }
 
-GBMT_TFP_RSN_Age <- rbindlist(list_tmp_Age)
+GBMT_TFP_RSN_Age_group <- rbindlist(list_tmp_Age_group)
 
 # https://journals.sagepub.com/doi/10.1177/0962280216673085
 set.seed(1)
@@ -74,12 +74,12 @@ mod <- gbmt::gbmt(
     "Global_Bridge", "Local_Bridge", "Super_Bridge", "Not_a_Bridge"
   ),
   unit = "1st_network",
-  time = "Age",
+  time = "Age_group",
   scaling = 0,
-  data = GBMT_TFP_RSN_Age %>% as.data.frame(),
+  data = GBMT_TFP_RSN_Age_group %>% as.data.frame(),
   nstart = 10,
-  ng = 6,
-  d = 4
+  ng = 5,
+  d =2
 )
 
 mod$assign.list
@@ -108,7 +108,7 @@ stability <- function(start, i) {
       unit = "1st_network",
       time = "Age_group",
       scaling = 0,
-      data = GBMT_TFP_RSN_Age %>% as.data.frame(),
+      data = GBMT_TFP_RSN_Age_group %>% as.data.frame(),
       nstart = 1e2,
       ng = 5,
       d = 2
@@ -127,9 +127,9 @@ consensus_grouping <- stable_groups %>%
   mutate_at(vars(everything()), funs(as.numeric(.))) %>%
   as.data.frame()
 
-write.csv(consensus_grouping, "consensus_GBMT_grouping_11022023_PT_100iter.csv")
+write.csv(consensus_grouping, "consensus_GBMT_grouping_20022023_PT_100iter.csv")
 
-consensus_grouping <- read.csv("consensus_GBMT_grouping_11022023_PT_100iter.csv") %>%
+consensus_grouping <- read.csv("consensus_GBMT_grouping_20022023_PT_100iter.csv") %>%
   as.data.frame() %>% remove_rownames() %>% tibble::column_to_rownames("X")
 
 
