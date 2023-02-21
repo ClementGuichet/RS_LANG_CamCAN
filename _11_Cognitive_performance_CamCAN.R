@@ -51,55 +51,14 @@ All_data <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
   na.omit() %>% 
   merge(., TFP_General_imputed_stats, by = "Subj_ID") 
 
-# All_data <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>% 
-#   merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>% 
-#   na.omit() %>% 
-#   merge(., Gradient_stats %>% dplyr::select(Subj_ID, Age, Age_group, `1st_network`,
-#                                             ilr_modular_inter, ilr_modular_intra, ilr_internodal), by = "Subj_ID")
-
 ################################################################################
 # ILR TRANSFORMATION 
 ################################################################################
 Cog_data_ILR <- All_data %>%  
   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>% 
   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>% 
+  mutate(ilr_modular_peri_final = ilr_modular_peri_final*(-1)) %>% 
   dplyr::select(-c(ToT_Ratio, Hotel_Task))
-
-# Cog_data_ILR <- All_data %>%  
-#   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>% 
-#   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>% 
-#   dplyr::select(-c(ToT_Ratio, Hotel_Task)) %>% 
-#   pivot_longer(c(ilr_modular_inter, ilr_modular_intra, ilr_internodal),
-#                names_to = "balances", values_to = "ilr") %>% 
-#   unite(BalancexRSN, "1st_network", "balances", remove = FALSE) %>% 
-#   dplyr::select(-c(balances, `1st_network`)) %>% 
-#   spread(BalancexRSN, ilr)
-
-# cor_data <- Cog_data_ILR %>% dplyr::select(ilr_modular_1, ilr_modular_2, ilr_internodal,
-#                                       # Cattell Fluid intelligence
-#                                       Cattell,
-#                                       # Hotel taks for executive functions (EF)
-#                                       Hotel_Task,
-#                                       # Proverb comprehension (abstraction & EF)
-#                                       Proverb,
-#                                       # Picture-picture priming (word production)
-#                                       Naming,
-#                                       # Sentence comprehension
-#                                       Sentence_Comprehension_c,
-#                                       # Tip-of-the-tongue
-#                                       ToT_Ratio,
-#                                       Story_Recall,
-#                                       Verbal_Fluency,
-#                                       Age) %>% na.omit()
-# 
-# corrplot::corrplot(cor(cor_data))
-#
-# library(psych)
-#
-# test <- psych::corr.test(cor_data, adjust = "fdr", ci = T, method = "pearson")
-# test
-# print(test, short = FALSE)
-
 
 ################################################################################
 # CANONICAL CORRELATION  ANALYSIS
@@ -109,15 +68,9 @@ library(CCP)
 
 Data_CCA <- Cog_data_ILR %>% na.omit()
 
-cog_measures <- Data_CCA[,c(4:9, 26:27)] %>% scale(.) %>% as.data.frame()
+cog_measures <- Data_CCA[,c(4:9, 35:36)] %>% scale(.) %>% as.data.frame()
 
-rs_measures <- Data_CCA[,23:25] %>% scale(.) %>% as.data.frame()
-
-# pca_loadings <- FactoMineR::PCA(rs_measures)
-# plot(pca_loadings)
-# pca_loadings$eig
-# contrib <- pca_loadings$var$contrib %>% as.data.frame()
-# rs_measures_pca <- pca_loadings$ind$coord[,1:4]
+rs_measures <- Data_CCA[,31:34] %>% scale(.) %>% as.data.frame()
 
 Data_CCA %>% pivot_longer(
   MMSE:Story_Recall,
@@ -149,39 +102,6 @@ img.matcor(desc_cca, type = 2)
 cc_results <- cancor(rs_measures, cog_measures)
 cc_results$cor
 
-
-Brain_Mode <- as.matrix(rs_measures) %*% cc_results$xcoef[, 1]
-Behavioral_Mode <- as.matrix(cog_measures) %*% cc_results$ycoef[, 1]
-
-
-cca_df <- Data_CCA %>% 
-  mutate(Brain_Mode=Brain_Mode*(-1),
-         Behavioral_Mode=Behavioral_Mode)
-
-RSA <- cca_df %>% 
-  mutate(Age_binned = Hmisc::cut2(Age, g = 5, levels.mean = TRUE)) %>% 
-  group_by(Age_binned) %>% group_split() %>% 
-  map_dfr(. %>% 
-            mutate(cor_res = cor.test(Brain_Mode, Behavioral_Mode)$estimate)) %>% 
-  dplyr::select(Age_binned, cor_res, Brain_Mode, Behavioral_Mode) %>% 
-  mutate(Similarity = -1*cor_res) %>% 
-  distinct(Age_binned, .keep_all = TRUE)
-
-RSA %>% 
-  ggplot(aes(as.numeric(Age_binned), Similarity)) + 
-  geom_line(linewidth = 2) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(0, 0.2, 0.05)) +
-  ggtitle("Similarity between canonical variates across the adult lifespan") +
-  labs(x = "Age") +
-  theme_classic2(base_size = 18)
-  
-
-
-flexplot(Behavioral_Mode~Brain_Mode + Age, cca_df, method = "lm")
-flexplot(Behavioral_Mode~Age, cca_df, method = "lm")
-flexplot(Brain_Mode~Age, cca_df, method = "lm")
-
 # Canonical loadings - correlation between variables and canonical variates
 cc_loadings <- cc(rs_measures, cog_measures)
 cc_results2 <- comput(rs_measures, cog_measures, cc_loadings)
@@ -197,6 +117,36 @@ q <- length(cog_measures)
 # Calculate p-values using the F-approximations of different test statistics:
 p.asym(rho, n, p, q, tstat = "Wilks")
 
+
+library(pracma)
+# set random seed for reproducible results
+set.seed(1)
+nperm <- 5000 # set permutation count
+nppl <- dim(Brain_Mode)[1] # number of target people
+permcor <- rep(NA,nperm) # preallocate results
+for (i in 1:nperm){
+  sel <- sample(nppl) # permutation vector
+  rnsim <- squareform(Brain_Mode[sel,sel]) # permute matrix and re-vectorize neural similarity
+  permcor[i] <- cor(Brain_Mode,Behavioral_Mode) # calculate permuted correlation
+}
+# calculate p-value
+mean(abs(permcor) > cor(nsim,explicit))
+################################################################################
+# FIGURES
+################################################################################
+
+Brain_Mode <- as.matrix(rs_measures) %*% cc_results$xcoef[, 1]
+Behavioral_Mode <- as.matrix(cog_measures) %*% cc_results$ycoef[, 1]
+
+
+cca_df <- Data_CCA %>% 
+  mutate(Brain_Mode=Brain_Mode,
+         Behavioral_Mode=Behavioral_Mode*(-1))
+
+flexplot(Brain_Mode~Age, cca_df, method = "lm")
+flexplot(Behavioral_Mode~Age, cca_df, method = "lm")
+flexplot(Brain_Mode~Behavioral_Mode, cca_df, method = "lm")
+
 cca_df %>% 
   ggplot(aes(x=Brain_Mode, Behavioral_Mode))+
   geom_hline(yintercept =0, color = "gray") +
@@ -209,14 +159,35 @@ cca_df %>%
   labs(x = "Brain Mode\n (Functional Segregation - Integration)", y = "Behavioral Mode\n (Worse - Better performance)",
        title = "Canonical correlation between brain/behavioral modes") + 
   annotate("text", fontface = "bold",
-           x = -0.07, y = -0.13, label = "Correlation = .32\n Wilks'Lambda: 0.88, F(24, 1631) = 3.18, p < .001",
+           x = -0.14, y = -0.12, label = "Correlation = .32",
            color = "black", size = 4
   ) +
   theme(plot.title.position = "plot")
 
 
+RSA <- cca_df %>% 
+  mutate(Age_binned = Hmisc::cut2(Age, g = 5, levels.mean = TRUE)) %>% 
+  group_by(Age_binned) %>% group_split() %>% 
+  map_dfr(. %>% 
+            mutate(cor_res = cor.test(Brain_Mode, Behavioral_Mode)$estimate)) %>% 
+  dplyr::select(Age_binned, cor_res, Brain_Mode, Behavioral_Mode) %>% 
+  mutate(Similarity = -1*cor_res) %>% 
+  distinct(Age_binned, .keep_all = TRUE)
 
-plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame() %>% 
+RSA %>% 
+  ggplot(aes(as.numeric(Age_binned), Similarity)) + 
+  geom_line(linewidth = 2) +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  ggtitle("Similarity between canonical variates across the adult lifespan") +
+  labs(x = "Age") +
+  theme_classic2(base_size = 18)
+
+
+plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame()
+  
+rownames(plot_loadings_x) <- c("Inter-modular", "Intra-modular", "Peripherisation", "Interfaces")
+
+plot_loadings_x <- plot_loadings_x %>% 
   rownames_to_column("Balances") %>% 
   plyr::rename(c("." = "loading")) %>% 
   arrange(loading)
@@ -318,6 +289,12 @@ cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age) %>% sca
 psych::mediate(Behavioral_Mode ~(Brain_Mode) + Age, data = cca_df_med) %>% summary()
 # med <- robmed::test_mediation(Behavioral_Mode~m(Brain_Mode) + Age, data = cca_df_med, robust = "MM")
 # summary(med)
+library(processR)
+
+labels=list(X="Age",M="Brain_Mode",Y="Behavioral_Mode")
+par(mfrow = c(1,1), mar=c(0,0,0,0), oma=c(0,0,0,0))
+pmacroModel(4,labels=labels)
+statisticalDiagram(4, labels=labels)
 
 library(lavaan)
 library(sem)
@@ -330,8 +307,8 @@ cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age, G1) %>%
   mutate(AgexG1 = Age*G1,
          Brain_ModexG1 = Brain_Mode * G1) %>% scale(.) %>% as.data.frame()
 
-labels=list(X="Age",M="Brain_Mode",Y="Behavioral_Mode",W="G1")
-par(mfrow = c(2,1), mar=c(0,0,0,0), oma=c(0,0,0,0))
+labels=list(X="Age",M="Brain_Mode",Y="Behavioral_Mode", W = "G1")
+par(mfrow = c(1,1), mar=c(0,0,0,0), oma=c(0,0,0,0))
 pmacroModel(7,labels=labels)
 statisticalDiagram(7, labels=labels)
 
@@ -376,3 +353,70 @@ fit <- lavaan::sem(MedMod, data = cca_df_med,
 
 summary(fit, standardized = FALSE, fit.measures = TRUE, rsquare = TRUE, ci = TRUE)
 parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized = FALSE)
+
+
+
+
+
+# Representational similarity
+
+
+All_data_RSN <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
+  merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>%
+  na.omit() %>%
+  merge(., Gradient_stats %>% dplyr::select(Subj_ID, Age, Age_group, `1st_network`,
+                                            ilr_modular_inter, ilr_modular_intra, ilr_internodal), by = "Subj_ID")
+
+Cog_data_ILR_RSN <- All_data_RSN %>% 
+  na.omit() %>% 
+  mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>%
+  mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>%
+  dplyr::select(-c(ToT_Ratio, Hotel_Task)) %>%
+  pivot_longer(c(ilr_modular_inter, ilr_modular_intra, ilr_internodal),
+               names_to = "balances", values_to = "ilr") %>%
+  unite(BalancexRSN, "1st_network", "balances", remove = FALSE) %>%
+  dplyr::select(-c(balances, `1st_network`)) %>%
+  spread(BalancexRSN, ilr) 
+  
+
+cog_measures_RSN <- Cog_data_ILR_RSN[,c(4:9, 12:13)] %>% scale(.) %>% as.data.frame()
+
+rs_measures_RSN <- Cog_data_ILR_RSN[,14:46] %>% scale(.) %>% as.data.frame()
+
+pca_loadings <- FactoMineR::PCA(rs_measures_RSN)
+plot(pca_loadings)
+pca_loadings$eig
+contrib <- pca_loadings$var$contrib %>% as.data.frame()
+rs_measures_pca <- pca_loadings$ind$coord[,1:4]
+
+desc_cca <- matcor(rs_measures_pca, cog_measures)
+img.matcor(desc_cca, type = 2)
+
+cc_results <- cancor(rs_measures_pca, cog_measures)
+cc_results$cor
+
+# Canonical loadings - correlation between variables and canonical variates
+cc_loadings <- cc(rs_measures_pca, cog_measures)
+cc_results2 <- comput(rs_measures_pca, cog_measures, cc_loadings)
+cc_results2[3:6]
+
+
+
+################################################################################
+# FIGURES
+################################################################################
+
+Brain_Mode_RSN <- as.matrix(rs_measures_pca) %*% cc_results$xcoef[, 1]
+Behavioral_Mode_RSN <- as.matrix(cog_measures) %*% cc_results$ycoef[, 1]
+
+
+cca_df_RSN <- Cog_data_ILR_RSN %>% 
+  mutate(Brain_Mode_RSN=Brain_Mode_RSN*(-1),
+         Behavioral_Mode_RSN=Behavioral_Mode_RSN)
+
+cor_data <- cbind(cog_measures, rs_measures_pca) %>% 
+  mutate(Behavioral_Mode = Behavioral_Mode,
+         Brain_Mode = Brain_Mode)
+
+dmat <- 1-cor(cor_data)
+levelplot(dmat)
