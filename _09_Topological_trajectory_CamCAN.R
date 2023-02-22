@@ -542,7 +542,7 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
   }
 }
 
-trajectory_inflexion("internodal", "DMN", 0.5)
+trajectory_inflexion("modular", "FPN", 1)
 ############################################################################
 # Easter egg :)
 #############################################################################

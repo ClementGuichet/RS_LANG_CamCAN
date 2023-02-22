@@ -10,8 +10,37 @@ source("_geometricmeanCruz.R")
 ################################################################################
 # Investigating the evolution of graph-based metrics ----
 ################################################################################
-# library(rio)
-# TFP_General <- rio::import("TFP_General_PT_627subj.csv") %>% dplyr::select(-V1)
+
+############################################################################
+# Global Disruption
+############################################################################
+
+mod <- lm(Balance_eff ~ Age, TFP_General)
+summary(mod)
+effectsize::eta_squared(mod)
+
+TFP_General %>% 
+  pivot_longer(c(Eglob, Eloc, Balance_eff), names_to = "Efficiencies", values_to = "value") %>% 
+  group_by(Efficiencies) %>% 
+  mutate(value = as.numeric(scale(value))) %>% 
+  ggplot(aes(Age, value, color = Efficiencies)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+  geom_smooth(linewidth = 2, method = "lm", alpha = .1) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(-0.5, 0.7, 0.2)) +
+  coord_cartesian(ylim = c(-0.5, 0.7)) +
+  scale_color_brewer(palette = "Dark2", 
+                     labels = c("Balance I/S", "Global efficiency", "Local efficiency")) +
+  theme_classic2(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Normalized efficiencies") +
+  ggtitle("Evolution of the balance I/S across the adult lifespan")
+
+
+############################################################################
+# Nodal Disruption
+############################################################################
 
 ############################################################################
 # Bayesian non-parametric multiplicative replacement
@@ -105,59 +134,41 @@ TFP_General_imputed %>%
 ############################################################################
 
 TFP_General_imputed_stats <- TFP_General_imputed %>% 
-  mutate(Provincial_vec = quantile(.$Provincial)[3]) %>% 
-  mutate(Satellite_vec = quantile(.$Satellite)[3]) %>%
-  # Inter-modular integration
-  mutate(ilr_modular_inter = (((1/2)^0.5)*log(Connector/Provincial))) %>%
-  mutate(Provincial_const = (((2/3)^0.5)*log(Connector/(Satellite*Peripheral)^(1/2)))) %>%  
-  # Intra-module integration
-  mutate(ilr_modular_intra = (((1/2)^0.5)*log(Connector/Satellite))) %>% 
-  mutate(Satellite_const = (((2/3)^0.5)*log(Connector/(Peripheral*Provincial)^(1/2)))) %>% 
+  # Integration
+  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
   # Peripherisation
-  mutate(ilr_modular_peri = (((1/2)^0.5)*log(Peripheral/Satellite))) %>%
-  mutate(Satellite_const_bis = (((2/3)^0.5)*log(Peripheral/(Connector*Provincial)^(1/2)))) %>% 
+  mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
   # Internodal role reconfiguration
-  mutate(ilr_internodal = (((4/4)^0.5)*log((Global_Bridge*Local_Bridge)^(1/2)/((Super_Bridge*Not_a_Bridge)^(1/2))))) %>% 
-  
-  mutate(ilr_modular_inter_final = ilr_modular_inter - Provincial_const,
-         ilr_modular_intra_final = ilr_modular_intra - Satellite_const,
-         ilr_modular_peri_final = ilr_modular_peri - Satellite_const_bis)
+  mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2))))) 
 
-mgcv::gam(ilr_modular_inter_final~s(Age), data = TFP_General_imputed_stats) %>% 
+mgcv::gam(Integration~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
-mgcv::gam(ilr_modular_intra_final~s(Age), data = TFP_General_imputed_stats) %>% 
+mgcv::gam(Peripherisation~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
-mgcv::gam(ilr_modular_peri_final~s(Age), data = TFP_General_imputed_stats) %>% 
-  summary()
-
-mgcv::gam(ilr_internodal~s(Age), data = TFP_General_imputed_stats) %>% 
+mgcv::gam(Polyvalent_interfaces~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
 TFP_General_imputed_stats %>%  
-  pivot_longer(c(ilr_modular_inter_final, 
-                 ilr_modular_intra_final,
-                 ilr_modular_peri_final,
-                 ilr_internodal),
-               names_to = "topological_mechanisms",
+  pivot_longer(c(Integration, 
+                 Peripherisation,
+                 Polyvalent_interfaces),
+               names_to = "topological_balances",
                values_to = "balance") %>% 
-  group_by(topological_mechanisms) %>% mutate(balance = as.numeric(scale(balance))) %>% 
-  ggplot(aes(Age, balance, color = topological_mechanisms)) +
+  group_by(topological_balances) %>% mutate(balance = as.numeric(scale(balance))) %>% 
+  ggplot(aes(Age, balance, color = topological_balances)) +
   geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.1, size = 4) +
+  geom_jitter(height = 0.05, alpha = 0.15, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = .1) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   scale_y_continuous(breaks = seq(-0.4, 0.4, 0.1)) +
   coord_cartesian(ylim = c(-0.4, 0.4)) +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
   theme_pubr(base_size = 18) +
   theme(plot.title.position = "plot") +
-  labs(y = "Isometric log-ratios", color = "Topological mechanisms") +
-  scale_color_brewer(palette = "PuOr", 
-                     labels = c("Inter-modular", "Intra-modular", "Peripherisation", "Interfaces")) +
-  ggtitle("Topological mechanisms across the adult lifespan")
-
+  labs(y = "Isometric log-ratios \n (z-scored)", color = "Topological balances") +
+  scale_color_brewer(palette = "Dark2") +
+  ggtitle("Evolution of topological balances across the adult lifespan")
 
 
 ################################################################################
@@ -225,29 +236,29 @@ TFP_RSN_imputed <- rbindlist(list_raw_imputed)
 TFP_RSN_CLR <- rbindlist(list_tmp)
 
 
-# RSN <- "DMN"
-# 
-# TFP_RSN_CLR %>% 
-#   filter(grepl(RSN, `1st_network`)) %>% 
-#   # dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
-#   dplyr::select(Subj_ID, Age, Connector:Peripheral) %>% 
-#   pivot_longer(
-#     cols = !c("Subj_ID", "Age"),
-#     names_to = "Functional_role",
-#     values_to = "Score"
-#   ) %>% 
-#   ggplot(aes(Age, Score, color = Functional_role)) +
-#   geom_hline(yintercept = 0, color = "red") +
-#   geom_jitter(height = 0.05, alpha = 0.1) +
-#   geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
-#   scale_x_continuous(breaks = seq(20, 90, 5)) +
-#   scale_y_continuous(breaks = seq(-1, 1, 0.1)) +
-#   coord_cartesian(ylim = c(-0.2, 0.2)) +
-#   scale_color_brewer(palette = "PuOr") +
-#   theme_pubclean(base_size = 18) +
-#   theme(plot.title.position = "plot") +
-#   labs(y = "Centered log-ratios") +
-#   ggtitle("Evolution of modular functional roles across adult lifespan")
+RSN <- "DMN"
+
+TFP_RSN_CLR %>%
+  filter(grepl(RSN, `1st_network`)) %>%
+  # dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+  pivot_longer(
+    cols = !c("Subj_ID", "Age"),
+    names_to = "Functional_role",
+    values_to = "Score"
+  ) %>%
+  ggplot(aes(Age, Score, color = Functional_role)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(-1, 1, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.2)) +
+  scale_color_brewer(palette = "PuOr") +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Centered log-ratios") +
+  ggtitle("Evolution of modular functional roles across adult lifespan")
 
 
 ################################################################################
@@ -258,30 +269,17 @@ geometric_all <- TFP_RSN_imputed %>%
   summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
 
 Gradient_stats <- TFP_RSN_imputed %>% 
-  mutate(Age_group = ifelse(Age <= 39, "Young", ifelse(Age <= 59, "Middle", "Old"))) %>% 
-  # Define ILR with raw components
-  mutate(Provincial_vec = quantile(.$Provincial)[3]) %>% 
-  mutate(Satellite_vec = quantile(.$Satellite)[3]) %>%
-  # Inter-modular integration
-  mutate(ilr_modular_inter = (((1/2)^0.5)*log(Connector/Provincial))) %>%
-  mutate(Provincial_const = (((2/3)^0.5)*log(Connector/(Satellite*Peripheral)^(1/2)))) %>%  
-  # Intra-module integration
-  mutate(ilr_modular_intra = (((1/2)^0.5)*log(Connector/Satellite))) %>% 
-  mutate(Satellite_const = (((2/3)^0.5)*log(Connector/(Peripheral*Provincial)^(1/2)))) %>% 
+  # Integration
+  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
   # Peripherisation
-  mutate(ilr_modular_peri = (((1/2)^0.5)*log(Peripheral/Satellite))) %>%
-  mutate(Satellite_const_bis = (((2/3)^0.5)*log(Peripheral/(Connector*Provincial)^(1/2)))) %>% 
+  mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
   # Internodal role reconfiguration
-  mutate(ilr_internodal = (((4/4)^0.5)*log((Global_Bridge*Local_Bridge)^(1/2)/((Super_Bridge*Not_a_Bridge)^(1/2))))) %>% 
-  
-  mutate(ilr_modular_inter_final = ilr_modular_inter - Provincial_const,
-         ilr_modular_intra_final = ilr_modular_intra - Satellite_const,
-         ilr_modular_peri_final = ilr_modular_peri - Satellite_const_bis) %>% 
-  # Standardized to CLR space
+  mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2))))) %>% 
+# Standardized to CLR space
   mutate(Connector = log(Connector / geometric_all$Connector)) %>%
   mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
   mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
-  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral))
+  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) 
 
 # Gradient loadings
 Gradient_stats$`1st_network` <- factor(Gradient_stats$`1st_network`) %>% 
@@ -297,52 +295,95 @@ ggplot(Gradient_stats %>% group_by(`1st_network`) %>%
   theme_classic2(base_size = 18)
 
 
-library(mgcv)
+# Integration
 
-Gradient_GAMM <- Gradient_stats %>%  
-  dplyr::select(Subj_ID, Age, Age_group, ilr_modular_inter_final, 
-                ilr_modular_intra_final, 
-                ilr_modular_peri_final, 
-                ilr_internodal, 
-                G1, `1st_network`)
+mod_lin <- mgcv::gam(Integration~Age*G1,
+                     data = Gradient_stats, method = "REML")
 
-mod1 <- gam(ilr_modular_inter_final~s(Age) + s(G1, k = 20) + 
-              ti(Age, G1),
-            data = Gradient_GAMM, method = "REML")
+mod_gam_sAge <- mgcv::gam(Integration~s(Age, by = G1),
+                     data = Gradient_stats, method = "REML")
 
-summary(mod1)
-AIC(mod1)
+mod_gam_sG1 <- mgcv::gam(Integration~s(G1, by = Age),
+                     data = Gradient_stats, method = "REML")
 
-vis.gam(mod1, view = c("Age", "G1"),
+mod_gam_full <- mgcv::gam(Integration~s(Age) + s(G1, k = 20) + 
+                       ti(Age, G1),
+                     data = Gradient_stats, method = "REML")
+
+
+AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+summary(mod_gam_full)
+
+mgcv::vis.gam(mod_gam_full, view = c("Age", "G1"),
         plot.type = "persp", theta = 55, phi = 15,
         n.grid = 30, lwd = 0.4, 
         color = "topo", ticktype = "detailed")
 
-Gradient_GAMM %>% 
+Gradient_stats %>% 
   filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
   group_by(`1st_network`) %>% 
-  mutate(ilr_modular_inter_scaled = as.numeric(scale(ilr_modular_inter_final))) %>% 
+  mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
   ungroup() %>% 
-  ggplot(aes(Age, ilr_modular_inter_scaled, color = forcats::fct_rev(`1st_network`))) +
+  ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(`1st_network`))) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.3)) +
   scale_color_brewer(palette = "RdBu") +
   theme_classic2(base_size = 18) +
   theme(plot.title.position = "plot") +
-  labs(y = "Balance Connector vs. Provincial hubs \n (z-scored ILR within each RSN)",
+  labs(y = "Integraion\n (z-scored ILR)",
        color = "RSN") +
-  ggtitle("Modulation of the inter-modular integration mechanism by RSN\n across the adult lifespan")
+  ggtitle("Modulation of the Integration mechanism by RSN across the adult lifespan")
 
-Gradient_GAMM %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 8, levels.mean = TRUE)) %>% 
+Gradient_stats %>% 
+  mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
+  filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
   group_by(G1_binned) %>% 
-  mutate(ilr_modular_inter_scaled = as.numeric(scale(ilr_modular_inter_final))) %>% 
+  mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
   ungroup() %>% 
-  ggplot(aes(Age, ilr_modular_inter_scaled, color = forcats::fct_rev(G1_binned))) +
+  ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(G1_binned))) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+  coord_cartesian(ylim = c(-0.2, 0.3)) +
+  scale_color_brewer(palette = "RdBu") +
+  theme_classic2(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Integration\n (z-scored ILR)",
+       color = "G1") +
+  ggtitle("Modulation of the Integration mechanism by G1\n across the adult lifespan")
+
+
+# Peripherisation
+
+mod_lin <- mgcv::gam(Peripherisation~Age*G1,
+                     data = Gradient_stats, method = "REML")
+
+mod_gam_sAge <- mgcv::gam(Peripherisation~s(Age, by = G1),
+                          data = Gradient_stats, method = "REML")
+
+mod_gam_sG1 <- mgcv::gam(Peripherisation~s(G1, by = Age),
+                         data = Gradient_stats, method = "REML")
+
+mod_gam_full <- mgcv::gam(Peripherisation~s(Age) + s(G1, k = 20) + 
+                            ti(Age, G1),
+                          data = Gradient_stats, method = "REML")
+
+
+AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+summary(mod_gam_full)
+
+Gradient_stats %>% 
+  filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
+  group_by(`1st_network`) %>% 
+  mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
+  ungroup() %>% 
+  ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(`1st_network`))) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
@@ -352,24 +393,17 @@ Gradient_GAMM %>%
   scale_color_brewer(palette = "RdBu") +
   theme_classic2(base_size = 18) +
   theme(plot.title.position = "plot") +
-  labs(y = "Balance Connector vs. Provincial hubs \n (z-scored ILR within each bin)",
+  labs(y = "Peripherisation\n (z-scored ILR)",
        color = "G1") +
-  ggtitle("The inter-modular integration mechanism is driven by G1 extrema\n across the adult lifespan")
+  ggtitle("Modulation of the Peripherisation mechanism by RSN across the adult lifespan")
 
 
-mod1 <- gam(ilr_modular_intra_final~s(Age) + s(G1, k = 20) + 
-              ti(Age, G1),
-            data = Gradient_GAMM, method = "REML")
-
-summary(mod1)
-par(mfrow = c(1, 1))
-
-Gradient_GAMM %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 5, levels.mean = TRUE)) %>% 
+Gradient_stats %>% 
+  mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
   group_by(G1_binned) %>% 
-  mutate(ilr_modular_intra_scaled = as.numeric(scale(ilr_modular_intra_final))) %>% 
+  mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
   ungroup() %>% 
-  ggplot(aes(Age, ilr_modular_intra_scaled, color = forcats::fct_rev(G1_binned))) +
+  ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(G1_binned))) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
@@ -379,62 +413,29 @@ Gradient_GAMM %>%
   scale_color_brewer(palette = "RdBu") +
   theme_classic2(base_size = 18) +
   theme(plot.title.position = "plot") +
-  labs(y = "Balance Connector vs. Satellite hubs \n (z-scored ILR within each bin)",
+  labs(y = "Peripherisation\n (z-scored ILR)",
        color = "G1") +
-  ggtitle("The intra-modular integration mechanism is driven by G1 extrema\n across the adult lifespan")
+  ggtitle("Modulation of the Peripherisation mechanism by G1 across the adult lifespan")
 
 
-mod1 <- gam(ilr_modular_peri_final~s(Age) + s(G1, k = 20) + 
-              ti(Age, G1), data = Gradient_GAMM, method = "REML")
-summary(mod1)
 
-par(mfrow = c(1, 1))
+# Polyvalent_Interfaces 
+mod_lin <- mgcv::gam(Polyvalent_interfaces~Age*G1,
+                     data = Gradient_stats, method = "REML")
 
-Gradient_GAMM %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 5, levels.mean = TRUE)) %>% 
-  group_by(G1_binned) %>% 
-  mutate(ilr_modular_peri_scaled = as.numeric(scale(ilr_modular_peri_final))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, ilr_modular_peri_scaled, color = forcats::fct_rev(G1_binned))) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "RdBu") +
-  theme_classic2(base_size = 18) +
-  theme(plot.title.position = "plot") +
-  labs(y = "Balance Connector vs. Satellite hubs \n (z-scored ILR within each bin)",
-       color = "G1") +
-  ggtitle("The intra-modular integration mechanism is driven by G1 extrema\n across the adult lifespan")
+mod_gam_sAge <- mgcv::gam(Polyvalent_interfaces~s(Age, by = G1),
+                          data = Gradient_stats, method = "REML")
+
+mod_gam_sG1 <- mgcv::gam(Polyvalent_interfaces~s(G1, by = Age),
+                         data = Gradient_stats, method = "REML")
+
+mod_gam_full <- mgcv::gam(Polyvalent_interfaces~s(Age) + s(G1, k = 20) + 
+                            ti(Age, G1),
+                          data = Gradient_stats, method = "REML")
 
 
-mod1 <- gam(ilr_internodal~s(Age) + s(G1, k = 20) + 
-              ti(Age, G1), data = Gradient_GAMM, method = "REML")
-summary(mod1)
-
-par(mfrow = c(1, 1))
-
-Gradient_GAMM %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 5, levels.mean = TRUE)) %>% 
-  group_by(G1_binned) %>% 
-  mutate(ilr_internodal_scaled = as.numeric(scale(ilr_internodal))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, ilr_internodal_scaled, color = forcats::fct_rev(G1_binned))) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "RdBu") +
-  theme_classic2(base_size = 18) +
-  theme(plot.title.position = "plot") +
-  labs(y = "Balance Connector vs. Satellite hubs \n (z-scored ILR within each bin)",
-       color = "G1") +
-  ggtitle("The intra-modular integration mechanism is driven by G1 extrema\n across the adult lifespan")
-
+AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+summary(mod_gam_full)
 
 ################################################################################
 # DESCRIPTIVES

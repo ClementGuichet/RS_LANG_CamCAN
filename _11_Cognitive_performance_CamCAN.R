@@ -57,7 +57,6 @@ All_data <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
 Cog_data_ILR <- All_data %>%  
   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>% 
   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>% 
-  mutate(ilr_modular_peri_final = ilr_modular_peri_final*(-1)) %>% 
   dplyr::select(-c(ToT_Ratio, Hotel_Task))
 
 ################################################################################
@@ -68,9 +67,9 @@ library(CCP)
 
 Data_CCA <- Cog_data_ILR %>% na.omit()
 
-cog_measures <- Data_CCA[,c(4:9, 35:36)] %>% scale(.) %>% as.data.frame()
+cog_measures <- Data_CCA[,c(4:9, 26:27)] %>% scale(.) %>% as.data.frame()
 
-rs_measures <- Data_CCA[,31:34] %>% scale(.) %>% as.data.frame()
+rs_measures <- Data_CCA[,23:25] %>% scale(.) %>% as.data.frame()
 
 Data_CCA %>% pivot_longer(
   MMSE:Story_Recall,
@@ -117,35 +116,20 @@ q <- length(cog_measures)
 # Calculate p-values using the F-approximations of different test statistics:
 p.asym(rho, n, p, q, tstat = "Wilks")
 
-
-library(pracma)
-# set random seed for reproducible results
-set.seed(1)
-nperm <- 5000 # set permutation count
-nppl <- dim(Brain_Mode)[1] # number of target people
-permcor <- rep(NA,nperm) # preallocate results
-for (i in 1:nperm){
-  sel <- sample(nppl) # permutation vector
-  rnsim <- squareform(Brain_Mode[sel,sel]) # permute matrix and re-vectorize neural similarity
-  permcor[i] <- cor(Brain_Mode,Behavioral_Mode) # calculate permuted correlation
-}
-# calculate p-value
-mean(abs(permcor) > cor(nsim,explicit))
 ################################################################################
 # FIGURES
 ################################################################################
+library(flexplot)
 
 Brain_Mode <- as.matrix(rs_measures) %*% cc_results$xcoef[, 1]
 Behavioral_Mode <- as.matrix(cog_measures) %*% cc_results$ycoef[, 1]
 
-
 cca_df <- Data_CCA %>% 
-  mutate(Brain_Mode=Brain_Mode,
-         Behavioral_Mode=Behavioral_Mode*(-1))
+  mutate(Brain_Mode=Brain_Mode*(-1),
+         Behavioral_Mode=Behavioral_Mode)
 
 flexplot(Brain_Mode~Age, cca_df, method = "lm")
 flexplot(Behavioral_Mode~Age, cca_df, method = "lm")
-flexplot(Brain_Mode~Behavioral_Mode, cca_df, method = "lm")
 
 cca_df %>% 
   ggplot(aes(x=Brain_Mode, Behavioral_Mode))+
@@ -153,41 +137,20 @@ cca_df %>%
   geom_vline(xintercept =0, color = "gray") +
   geom_point(aes(colour = Age), size = 4) + 
   geom_smooth(method = "lm", color = "black", alpha = .4, size = 2) +
-  scale_color_viridis(option = "plasma") +
-  theme_classic2(base_size = 18) +
-  
-  labs(x = "Brain Mode\n (Functional Segregation - Integration)", y = "Behavioral Mode\n (Worse - Better performance)",
+
+  labs(x = "Brain Mode", 
+       y = "Behavioral Mode\n (Worse - Better performance)",
        title = "Canonical correlation between brain/behavioral modes") + 
   annotate("text", fontface = "bold",
-           x = -0.14, y = -0.12, label = "Correlation = .32",
+           x = -0.15, y = -0.12, label = "Correlation = .29",
            color = "black", size = 4
   ) +
-  theme(plot.title.position = "plot")
-
-
-RSA <- cca_df %>% 
-  mutate(Age_binned = Hmisc::cut2(Age, g = 5, levels.mean = TRUE)) %>% 
-  group_by(Age_binned) %>% group_split() %>% 
-  map_dfr(. %>% 
-            mutate(cor_res = cor.test(Brain_Mode, Behavioral_Mode)$estimate)) %>% 
-  dplyr::select(Age_binned, cor_res, Brain_Mode, Behavioral_Mode) %>% 
-  mutate(Similarity = -1*cor_res) %>% 
-  distinct(Age_binned, .keep_all = TRUE)
-
-RSA %>% 
-  ggplot(aes(as.numeric(Age_binned), Similarity)) + 
-  geom_line(linewidth = 2) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  ggtitle("Similarity between canonical variates across the adult lifespan") +
-  labs(x = "Age") +
+  theme(plot.title.position = "plot") +
+  scale_color_viridis(option = "plasma") +
   theme_classic2(base_size = 18)
 
 
-plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame()
-  
-rownames(plot_loadings_x) <- c("Inter-modular", "Intra-modular", "Peripherisation", "Interfaces")
-
-plot_loadings_x <- plot_loadings_x %>% 
+plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame() %>% 
   rownames_to_column("Balances") %>% 
   plyr::rename(c("." = "loading")) %>% 
   arrange(loading)
@@ -218,36 +181,7 @@ loadings_y <- ggplot(plot_loadings_y, aes(x = Cognitive_assessment, y = loading)
   theme_pubr(base_size = 18)
 
 gridExtra::grid.arrange(loadings_x, loadings_y, nrow = 1)
-# 
-# library(widyr)
-# library(ggraph)
-# library(igraph)
-# 
-# adjacency_to_2col <- function(data) {
-#   crossdata <- lapply(rownames(data), function(x) sapply(colnames(data), function(y) list(x, y, data[x, y])))
-#   crossdatatmp <- matrix(unlist(crossdata), nrow = 3)
-#   crossdatamat <- t(crossdatatmp)
-#   crossdatadf <- as.data.frame(crossdatamat, stringsAsFactors = F)
-#   crossdatadf[, 3] <- as.numeric(crossdatadf[, 3])
-#   return(crossdatadf %>% na.omit())
-# }
-# 
-# correlations <- 
-#   desc_cca$XYcor %>% as.data.frame() %>% 
-#   adjacency_to_2col(.) %>% 
-#   plyr::rename(c("V3" = "correlation")) %>% 
-#   filter(correlation != 1) %>% 
-#   mutate(corr_abs = abs(correlation)) %>% 
-#   arrange(desc(corr_abs))
-# 
-# correlations %>% 
-#   head(length(correlations$corr_abs)*.8) %>% 
-#   graph_from_data_frame(directed = TRUE) %>% 
-#   ggraph(layout = "auto") +
-#   geom_edge_link(aes(edge_alpha = correlation)) +
-#   geom_node_point() +
-#   geom_node_text(aes(label = name), repel = TRUE) +
-#   theme_pubclean()
+
 
 ################################################################################
 # MEDIATION ANALYSIS
@@ -261,32 +195,28 @@ library(robmed)
 # STEP 1: Direct effect DV ~ IV
 mod1 <- lm(Behavioral_Mode~ Age, data = cca_df)
 summary(mod1)
-performance::check_model(mod1)
 flexplot(Behavioral_Mode ~ Age, cca_df, method = "lm")
 
  # STEP 2: Indirect effect Mediator ~ IV
 mod2 <- lm(Brain_Mode~ Age, data = cca_df)
 summary(mod2)
-performance::check_model(mod2)
 flexplot(Brain_Mode~Age, data = cca_df, method = "lm")
 
 # Step 3: DV ~ mediator
 mod3 <- lm(Behavioral_Mode~ Brain_Mode, cca_df)
 summary(mod3)
-performance::check_model(mod3)
 flexplot(Behavioral_Mode~ Brain_Mode, cca_df, method = "lm")
 
 # Step 4: DV ~ mediator + controlling for IV
 mod4 <- lm(Behavioral_Mode~ Brain_Mode + Age, cca_df)
 summary(mod4)
-performance::check_model(mod4)
 # --> Partial mediation
 flexplot(Behavioral_Mode~Age + Brain_Mode, cca_df, method = "lm")
 
+cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age, Balance_eff, Eloc) %>% scale(.) %>% as.data.frame()
 
-cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age) %>% scale(.) %>% as.data.frame()
 
-psych::mediate(Behavioral_Mode ~(Brain_Mode) + Age, data = cca_df_med) %>% summary()
+psych::mediate(Behavioral_Mode ~(Balance_eff) + Age, data = cca_df_med) %>% summary()
 # med <- robmed::test_mediation(Behavioral_Mode~m(Brain_Mode) + Age, data = cca_df_med, robust = "MM")
 # summary(med)
 library(processR)
@@ -300,62 +230,37 @@ library(lavaan)
 library(sem)
 library(semPlot)
 
-
 library(processR)
 
-cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age, G1) %>% 
+write.csv(cca_df_med, 'file_mediation.csv')
+cca_df_med <- cca_df %>% dplyr::select(Behavioral_Mode, Brain_Mode, Age, G1, Eloc) %>% 
   mutate(AgexG1 = Age*G1,
          Brain_ModexG1 = Brain_Mode * G1) %>% scale(.) %>% as.data.frame()
 
-labels=list(X="Age",M="Brain_Mode",Y="Behavioral_Mode", W = "G1")
+labels=list(X="Age",M1="Brain_Mode", M2 = "Eloc", M3 = "Balance I/S", Y="Behavioral_Mode")
 par(mfrow = c(1,1), mar=c(0,0,0,0), oma=c(0,0,0,0))
-pmacroModel(7,labels=labels)
-statisticalDiagram(7, labels=labels)
+pmacroModel(6,labels=labels)
+statisticalDiagram(6, labels=labels)
 
-quantile(cca_df_med$G1, probs = c(0.16, 0.5, 0.84))
-# 16%        50%        84% 
-# -1.2560748  0.3430827  1.0692292 
 
-mod <- "
-  Behavioral_Mode ~ cprime*Age + b*Brain_Mode
-  Brain_Mode ~ a1*Age + a2*G1 + a3*AgexG1
-  indirect := a3*b
-  direct := cprime
-  total := direct + indirect
+mod_bis <- "
+# Mediation Effect
+Behavioral_Mode ~ b1*Brain_Mode+b2*Eloc+c1*Age
+Brain_Mode ~ a1*Age
+Eloc ~ a2*Age+d1*Brain_Mode
+ind1:=a1*b1
+ind2:=a2*b2
+secondInd1:=a1*d1*b2
+total1:=c1+a1*b1+a2*b2+a1*d1*b2
 "
 
-MedMod <- '
-Behavioral_Mode ~ b*Brain_Mode + cprime*Age
-Brain_Mode ~ a1*Age + a2*G1 + a3*AgexG1
-
-# Define simple slopes and conditional indirect effects using :=
-
-IndMedMod:= a3*b
-
-# simple slope of Brain_Mode on Age is a1+a3*G1 (Hayes et al., 2017)
-aLow: = a1+a3*(-1.26)
-aMedian: = a1+a3*0.34
-aMean: = a1+a3*(0)
-aHigh: = a1+a3*1.07
-
-
-# conditional indirect effects is b*(a1+a3*G1)
-abLow: = b*aLow
-abMedian: = b*aMedian
-abMean: = b*aMean
-abHigh: = b*aHigh
-'
-
-set.seed(2000)
-fit <- lavaan::sem(MedMod, data = cca_df_med, 
-                   se = "bootstrap", bootstrap = 100, 
+set.seed(2023)
+fit <- lavaan::sem(mod_bis, data = cca_df_med, 
+                   se = "bootstrap", bootstrap = 1000, 
                    fixed.x=FALSE, meanstructure = TRUE)
 
 summary(fit, standardized = FALSE, fit.measures = TRUE, rsquare = TRUE, ci = TRUE)
 parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized = FALSE)
-
-
-
 
 
 # Representational similarity
@@ -364,59 +269,43 @@ parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized 
 All_data_RSN <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
   merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>%
   na.omit() %>%
-  merge(., Gradient_stats %>% dplyr::select(Subj_ID, Age, Age_group, `1st_network`,
-                                            ilr_modular_inter, ilr_modular_intra, ilr_internodal), by = "Subj_ID")
+  merge(., Gradient_stats %>% dplyr::select(Subj_ID, Age, `1st_network`,
+                                            Integration, Peripherisation, Polyvalent_interfaces), by = "Subj_ID")
 
 Cog_data_ILR_RSN <- All_data_RSN %>% 
   na.omit() %>% 
   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>%
   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>%
   dplyr::select(-c(ToT_Ratio, Hotel_Task)) %>%
-  pivot_longer(c(ilr_modular_inter, ilr_modular_intra, ilr_internodal),
-               names_to = "balances", values_to = "ilr") %>%
-  unite(BalancexRSN, "1st_network", "balances", remove = FALSE) %>%
-  dplyr::select(-c(balances, `1st_network`)) %>%
-  spread(BalancexRSN, ilr) 
+  pivot_longer(c(Integration, Peripherisation, Polyvalent_interfaces),
+               names_to = "topological_balances", values_to = "value") %>%
+  unite(BalancexRSN, "1st_network", "topological_balances", remove = FALSE) %>%
+  dplyr::select(-c(topological_balances, `1st_network`)) %>%
+  spread(BalancexRSN, value) 
   
 
-cog_measures_RSN <- Cog_data_ILR_RSN[,c(4:9, 12:13)] %>% scale(.) %>% as.data.frame()
+cog_measures_RSN <- Cog_data_ILR_RSN[,c(4:9, 11:12)] %>% scale(.) %>% as.data.frame()
 
-rs_measures_RSN <- Cog_data_ILR_RSN[,14:46] %>% scale(.) %>% as.data.frame()
-
-pca_loadings <- FactoMineR::PCA(rs_measures_RSN)
-plot(pca_loadings)
-pca_loadings$eig
-contrib <- pca_loadings$var$contrib %>% as.data.frame()
-rs_measures_pca <- pca_loadings$ind$coord[,1:4]
-
-desc_cca <- matcor(rs_measures_pca, cog_measures)
-img.matcor(desc_cca, type = 2)
-
-cc_results <- cancor(rs_measures_pca, cog_measures)
-cc_results$cor
-
-# Canonical loadings - correlation between variables and canonical variates
-cc_loadings <- cc(rs_measures_pca, cog_measures)
-cc_results2 <- comput(rs_measures_pca, cog_measures, cc_loadings)
-cc_results2[3:6]
+rs_measures_RSN <- Cog_data_ILR_RSN[,13:45] %>% scale(.) %>% as.data.frame()
 
 
-
-################################################################################
-# FIGURES
-################################################################################
-
-Brain_Mode_RSN <- as.matrix(rs_measures_pca) %*% cc_results$xcoef[, 1]
-Behavioral_Mode_RSN <- as.matrix(cog_measures) %*% cc_results$ycoef[, 1]
+# pca_loadings <- FactoMineR::PCA(rs_measures_RSN)
+# plot(pca_loadings)
+# pca_loadings$eig
+# contrib <- pca_loadings$var$contrib %>% as.data.frame()
+# rs_measures_pca <- pca_loadings$ind$coord[,1:4]
 
 
-cca_df_RSN <- Cog_data_ILR_RSN %>% 
-  mutate(Brain_Mode_RSN=Brain_Mode_RSN*(-1),
-         Behavioral_Mode_RSN=Behavioral_Mode_RSN)
+ncors_integration <- 1-cor(cog_measures_RSN, rs_measures_RSN %>% dplyr::select(ends_with("Integration")))
+ncors_integration_plot <- ncors_integration >= quantile(ncors_integration, na.rm = TRUE)[3]
 
-cor_data <- cbind(cog_measures, rs_measures_pca) %>% 
-  mutate(Behavioral_Mode = Behavioral_Mode,
-         Brain_Mode = Brain_Mode)
+library(circlize)
 
-dmat <- 1-cor(cor_data)
-levelplot(dmat)
+circlize::chordDiagram(ncors_integration_plot)
+
+ncors_peri <- 1-cor(cog_measures_RSN, rs_measures_RSN %>% dplyr::select(ends_with("Peripherisation")))
+ncors_peri_plot <- ncors_peri >= quantile(ncors_peri, na.rm = TRUE)[3]
+
+library(circlize)
+
+circlize::chordDiagram(ncors_peri_plot)
