@@ -327,18 +327,18 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
       mutate(Age_inflexion = ifelse(Age < 52, "Young", "Old"))
     
     modular <<- tmp_cluster_final %>%
-      group_by(`1st_network`, Region, Age_inflexion, Subj_ID, MODULAR) %>%
+      group_by(`1st_network`, Consensus_vector_0.15, Region, Age_inflexion, Subj_ID, MODULAR) %>%
       summarise(n = n()) %>%
       mutate(freq = n / sum(n)) %>%
       dplyr::select(-n) %>%
       spread(MODULAR, freq) %>%
       mutate_all(., ~ replace(., is.na(.), 0)) %>%
-      group_by(`1st_network`, Region, Age_inflexion) %>%
+      group_by(`1st_network`, Consensus_vector_0.15, Region, Age_inflexion) %>%
       summarize_at(vars(Connector, Provincial, Satellite, Peripheral), mean) %>%
       ungroup() %>%
       arrange(Region) %>%
       pivot_longer(
-        cols = !c("1st_network", "Region", "Age_inflexion"),
+        cols = !c("1st_network", "Consensus_vector_0.15", "Region", "Age_inflexion"),
         names_to = "MODULAR", values_to = "freq"
       )
     
@@ -360,18 +360,18 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
     }
   } else {
     interareal <<- tmp_cluster_final %>%
-      group_by(`1st_network`, Region, Age_inflexion, Subj_ID, INTERNODAL) %>%
+      group_by(`1st_network`, Consensus_vector_0.15, Region, Age_inflexion, Subj_ID, INTERNODAL) %>%
       summarise(n = n()) %>%
       mutate(freq = n / sum(n)) %>%
       dplyr::select(-n) %>%
       spread(INTERNODAL, freq) %>%
       mutate_all(., ~ replace(., is.na(.), 0)) %>%
-      group_by(`1st_network`, Region, Age_inflexion) %>%
+      group_by(`1st_network`, Consensus_vector_0.15, Region, Age_inflexion) %>%
       summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge), mean) %>%
       ungroup() %>%
       arrange(Region) %>%
       pivot_longer(
-        cols = !c("1st_network", "Region", "Age_inflexion"),
+        cols = !c("1st_network", "Consensus_vector_0.15", "Region", "Age_inflexion"),
         names_to = "INTERNODAL", values_to = "freq"
       )
     interareal$Age_inflexion <- factor(interareal$Age_inflexion, levels = c("Young", "Old"))
@@ -420,7 +420,7 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
     # Outer compute all pairwise probabilities between each of the 4 functional roles
     # Returning a 4 by 4 matrix
     
-    outer_young_to_middle <- outer(tmp[, 4] %>% as.matrix(), tmp[, 5] %>% as.matrix()) %>% as.data.frame()
+    outer_young_to_middle <- outer(tmp[, 5] %>% as.matrix(), tmp[, 6] %>% as.matrix()) %>% as.data.frame()
     if (composition == "modular") {
       rownames(outer_young_to_middle) <- unlist(tmp$MODULAR)
       colnames(outer_young_to_middle) <- unlist(tmp$MODULAR)
@@ -442,7 +442,7 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
       outer_young_to_middle_2 <- crossdatadf %>% dplyr::slice_max(Value_norm, n = 1)
     }
     tmp_young_to_middle <<- cbind(tmp %>% slice(1:nrow(outer_young_to_middle_2)) %>%
-                                    dplyr::select(`1st_network`, Region), outer_young_to_middle_2) %>%
+                                    dplyr::select(`1st_network`, Region, Consensus_vector_0.15), outer_young_to_middle_2) %>%
       plyr::rename(c("Value" = "Value_YM")) 
     
     full_trajectory <- tmp_young_to_middle
@@ -542,7 +542,182 @@ trajectory_inflexion <- function(composition, list_RSN, threshold) {
   }
 }
 
-trajectory_inflexion("modular", "FPN", 1)
+trajectory_inflexion("modular", "All", 5)
+
+
+
+
+region_level_reconfig <- Cond_PMF_final %>% 
+  # Duplicate: Cingulum_Post_L DMN ; Post_central_R6 SMN
+  spread(Age_inflexion, MODULAR) %>% 
+  filter(Old != Young) %>%
+  relocate(Old, .after = Young) %>% 
+  arrange(`1st_network`) %>% 
+  mutate(Topological_mechanism = ifelse(
+    Young == "Provincial" & Old == "Connector", "Inter",
+    ifelse(
+      Young == "Satellite" & Old == "Connector", "Intra",
+      ifelse(
+        Young == "Satellite" & Old == "Peripheral", "Periph",
+        ifelse(Young == Old, "IDEM", 
+               ifelse(
+                 Young == "Peripheral" & Old == "Connector", "Inter",
+                 ifelse(
+                   Young == "Peripheral" & Old == "Satellite", "Inter",
+                   ifelse(
+                     Young == "Peripheral" & Old == "Provincial", "Intra",
+                     ifelse(
+                       Young == "Connector" & Old == "Provincial", "Periph",
+                       ifelse(
+                         Young == "Provincial" & Old == "Peripheral", "Periph",
+                         ifelse(
+                           Young == "Satellite" & Old == "Provincial", "Periph", "undefined"
+                         )
+                       )
+                     )
+                   )))
+        )
+      )
+    )
+  )
+  ) 
+
+
+region_level_reconfig %>% 
+  group_by(`1st_network`) %>% 
+  count(Topological_mechanism) %>% 
+  mutate(n = prop.table(n))
+
+region_level_reconfig %>% 
+  group_by(Consensus_vector_0.15) %>% 
+  count(Topological_mechanism) %>% 
+  mutate(n = prop.table(n))
+
+
+# RSN 
+
+flexibility_reconfig_abs <- Cond_PMF_final %>% 
+  # Duplicate: Cingulum_Post_L DMN ; Post_central_R6 SMN
+  spread(Age_inflexion, MODULAR) %>% 
+  relocate(Old, .after = Young) %>% 
+  mutate(Topological_mechanism = ifelse(
+    Young == "Provincial" & Old == "Connector", "Inter",
+    ifelse(
+      Young == "Satellite" & Old == "Connector", "Intra",
+      ifelse(
+        Young == "Satellite" & Old == "Peripheral", "Periph",
+        ifelse(Young == Old, "IDEM", 
+               ifelse(
+                 Young == "Peripheral" & Old == "Connector", "Inter",
+                 ifelse(
+                   Young == "Peripheral" & Old == "Satellite", "Inter",
+                   ifelse(
+                     Young == "Peripheral" & Old == "Provincial", "Intra",
+                     ifelse(
+                       Young == "Connector" & Old == "Provincial", "Periph",
+                       ifelse(
+                         Young == "Provincial" & Old == "Peripheral", "Periph",
+                         ifelse(
+                           Young == "Satellite" & Old == "Provincial", "Intra", "undefined"
+                         )
+                       )
+                     )
+                   )))
+                 )
+               )
+      )
+    )
+  ) %>% 
+  group_by(`1st_network`, Topological_mechanism) %>% 
+  count(Old != Young) %>% 
+  rename(Reconfig = colnames(.[2])) %>% 
+  arrange(desc(Reconfig)) %>% 
+  group_by(`1st_network`) %>%
+  mutate(percentage_reconfig = n / (n + lead(n))) %>% 
+  ungroup() %>% 
+  arrange(desc(Reconfig), desc(percentage_reconfig))
+
+G1_df <- Gradient_stats %>% group_by(`1st_network`) %>% 
+  summarize_at(vars(G1), mean)
+
+flexibility_reconfig_abs_G1 <- merge(flexibility_reconfig_abs, G1_df, by = "1st_network")
+
+flexibility_reconfig_abs_G1$`1st_network` <- factor(flexibility_reconfig_abs_G1$`1st_network`) %>%
+  fct_reorder(flexibility_reconfig_abs_G1$G1, .desc = FALSE)
+
+ggplot(flexibility_reconfig_abs_G1, aes(`1st_network`, n, fill = forcats::fct_rev(Reconfig))) +
+  geom_bar(position = "stack", stat = "identity") +
+  coord_flip() +
+  theme_classic2(base_size = 18) +
+  labs(y = "Number of regions", x = "Resting-state networks\n (sensori-to-transmodal gradient)",
+       legend = "Topological mechanisms") +
+  theme(plot.title.position = "plot",
+        legend.title = element_blank()) +
+  scale_fill_discrete(breaks=c("IDEM","Inter","Intra", "Periph"), 
+                      labels = c("No reconfiguration","Integration inter-module","Integration intra-module", "Peripherisation")) +
+  scale_y_continuous(breaks = seq(0, 30, 2)) +
+  ggtitle("Proportion of hub regions that change topological roles before/after the inflexion point (52yo)")
+
+
+
+# Community structure
+
+flexibility_reconfig_abs_ComStruct <- Cond_PMF_final %>% 
+  # Duplicate: Cingulum_Post_L DMN ; Post_central_R6 SMN
+  spread(Age_inflexion, MODULAR) %>% 
+  relocate(Old, .after = Young) %>% 
+  mutate(Topological_mechanism = ifelse(
+    Young == "Provincial" & Old == "Connector", "Inter",
+    ifelse(
+      Young == "Satellite" & Old == "Connector", "Intra",
+      ifelse(
+        Young == "Satellite" & Old == "Peripheral", "Periph",
+        ifelse(Young == Old, "IDEM", 
+               ifelse(
+                 Young == "Peripheral" & Old == "Connector", "Inter",
+                 ifelse(
+                   Young == "Peripheral" & Old == "Satellite", "Inter",
+                   ifelse(
+                     Young == "Peripheral" & Old == "Provincial", "Intra",
+                     ifelse(
+                       Young == "Connector" & Old == "Provincial", "Periph",
+                       ifelse(
+                         Young == "Provincial" & Old == "Peripheral", "Periph",
+                         ifelse(
+                           Young == "Satellite" & Old == "Provincial", "Intra", "undefined"
+                         )
+                       )
+                     )
+                   )))
+        )
+      )
+    )
+  )
+  ) %>% 
+  group_by(Consensus_vector_0.15, Topological_mechanism) %>% 
+  count(Old != Young) %>% 
+  rename(Reconfig = colnames(.[2])) %>% 
+  arrange(desc(Reconfig)) %>% 
+  group_by(Consensus_vector_0.15) %>%
+  mutate(percentage_reconfig = n / (n + lead(n))) %>% 
+  ungroup() %>% 
+  arrange(desc(Reconfig), desc(percentage_reconfig))
+
+ggplot(flexibility_reconfig_abs_ComStruct, aes(forcats::fct_rev(Consensus_vector_0.15), n, fill = forcats::fct_rev(Reconfig))) +
+  geom_bar(position = "stack", stat = "identity") +
+  coord_flip() +
+  theme_classic2(base_size = 18) +
+  labs(y = "Number of regions", x = "RS NETs",
+       legend = "Topological mechanisms") +
+  theme(plot.title.position = "plot",
+        legend.title = element_blank()) +
+  scale_fill_discrete(breaks=c("IDEM","Inter","Intra", "Periph"), 
+                      labels = c("No reconfiguration","Integration inter-module","Integration intra-module", "Peripherisation")) +
+  scale_y_continuous(breaks = seq(0, 50, 5)) +
+  ggtitle("Proportion of hub regions that change topological roles before/after the inflexion point (52yo)")
+
+
+
 ############################################################################
 # Easter egg :)
 #############################################################################

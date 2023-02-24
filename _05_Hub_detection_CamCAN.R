@@ -109,7 +109,8 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
     # Method ~ Detect top % regions for each metric ------------------------------
     Hub_detection <- data_functional_role %>% 
       dplyr::select(Subj_ID, Region, 
-                    degree, Within_module_z_cons, zPC_cons, zBT, zFlow, G1,
+                    degree, Within_module_z_cons, zPC_cons, zBT, zFlow, 
+                    G1,
                     `1st_network`, Consensus_vector_0.15) %>%
       # mutate(across(degree:PC, ~ rank(-.x), .names = "{.col}_rank")) %>%
       pivot_longer(
@@ -135,7 +136,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       tmp <- data_functional_role %>%
         filter(Region %in% Hub_df$Region) %>%
         filter(Subj_ID == i) %>%
-        dplyr::select(Subj_ID, Age, Region, G1, `1st_network`, Consensus_vector_0.15, MODULAR, INTERNODAL)
+        dplyr::select(Subj_ID, Age, Region, G1,`1st_network`, Consensus_vector_0.15, MODULAR, INTERNODAL)
       
       # Here I compute the proportion of functional roles regarding centrality and information flow
       # with the hubs specific to each subject
@@ -152,6 +153,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
         dplyr::select(-n) %>%
         spread(INTERNODAL, freq)
       
+
       FR_ind <- cbind(FR_ind_modular, FR_ind_internodal)
       
       # Hub region of each subject
@@ -160,11 +162,17 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       FR_list[[i]] <- FR_ind
     }
     
-    # Adding a ratio score denoting the propensity for functional segregation over integration
-    data_cluster_efficiency <- data_functional_role %>%
+    # At the connectomic level
+    efficiencies_connectome <- data_functional_role %>%
       dplyr::select(Subj_ID, Eglob, Eloc) %>%
       group_by(Subj_ID) %>%
       summarize_at(vars(Eglob, Eloc), mean) %>%
+      mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob)) %>% 
+      ungroup()
+    
+    # At the ROI level
+    efficiencies_ROI <- data_functional_role %>%
+      dplyr::select(Subj_ID, Region, Eglob, Eloc) %>% 
       mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob))
     
     ################################################################################
@@ -172,11 +180,11 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
     # TPF at the Subject-level
     TFP_General <<- cbind(
       rbindlist(FR_list, fill = TRUE) %>%
-        mutate_all(., ~ replace(., is.na(.), 0)) %>% mutate_at(vars(everything()), funs(. * 100)),
+        mutate_all(., ~ replace(., is.na(.), 0)) %>% mutate_at(vars(Connector:Super_Bridge), funs(. * 100)),
       data_functional_role %>% group_by(Subj_ID, gender_text) %>% summarise_at(vars(Age), mean) %>% arrange(Subj_ID),
-      Balance_eff = data_cluster_efficiency$Balance_eff,
-      Eglob = data_cluster_efficiency$Eglob,
-      Eloc = data_cluster_efficiency$Eloc
+      Eglob = efficiencies_connectome$Eglob,
+      Eloc = efficiencies_connectome$Eloc,
+      Balance_eff = efficiencies_connectome$Balance_eff
     ) %>% 
       # Remove subject with fragmented graph
       filter(Subj_ID %in% LLC_filter$Subj_ID) %>% 
@@ -198,7 +206,8 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
                                                       ifelse(Age <= 69, 65,
                                                              ifelse(Age <= 79, 75, 85))))))) %>% 
       mutate(Age_group = ifelse(Age <= 39, 1, 
-                                ifelse(Age <= 59, 2, 3)))
+                                ifelse(Age <= 59, 2, 3))) %>% 
+      merge(., efficiencies_ROI, by = c("Subj_ID", "Region"))
     
     ################################################################################
     # TPF at the Subject-level & RSN-level
@@ -230,6 +239,45 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
     
     TFP_RSN <<- merge(trajectory_modular, trajectory_internodal, by = c("Subj_ID", "1st_network", "Age", "G1")) %>% 
       mutate_at(vars(Connector:Super_Bridge), funs(as.numeric(. * 100))) 
+    
+    # TPF at the Subject-level & Community-level
+    trajectory_modular <- tmp_cluster_final %>%
+      group_by(Consensus_vector_0.15, Eglob, Eloc, Region, Subj_ID, Age, MODULAR) %>%
+      summarise(n = n()) %>%
+      mutate(freq = n / sum(n)) %>%
+      spread(MODULAR, freq) %>%
+      dplyr::select(-n) %>%
+      mutate_all(., ~ replace(., is.na(.), 0)) %>%
+      group_by(Consensus_vector_0.15, Subj_ID, Age) %>%
+      summarize_at(vars(Connector, Provincial, Satellite, Peripheral, Eglob, Eloc), mean) %>%
+      ungroup() %>%
+      pivot_longer(cols = !c("Consensus_vector_0.15","Subj_ID", "Age"), names_to = "Functional_role", values_to = "freq") %>% 
+      spread(Functional_role, freq)
+    
+    trajectory_internodal <- tmp_cluster_final %>%
+      group_by(Consensus_vector_0.15, Eglob, Eloc, Region, Subj_ID, Age, INTERNODAL) %>%
+      summarise(n = n()) %>%
+      mutate(freq = n / sum(n)) %>%
+      spread(INTERNODAL, freq) %>%
+      dplyr::select(-n) %>%
+      mutate_all(., ~ replace(., is.na(.), 0)) %>%
+      group_by(Consensus_vector_0.15, Subj_ID, Age) %>%
+      summarize_at(vars(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge, Eglob, Eloc), mean) %>%
+      ungroup() %>%
+      pivot_longer(cols = !c("Consensus_vector_0.15", "Subj_ID",  "Age"), names_to = "Functional_role", values_to = "freq") %>% 
+      spread(Functional_role, freq)
+    
+    TFP_ComStruct <<- merge(trajectory_modular, trajectory_internodal, by = c("Subj_ID", "Consensus_vector_0.15", "Age", "Eglob", "Eloc")) %>% 
+      mutate_at(vars(Connector:Super_Bridge), funs(as.numeric(. * 100))) %>% 
+      mutate(Consensus_vector_0.15 = ifelse(Consensus_vector_0.15 == "1", "RS-NET 1 (DMN, FPN, Language)",
+                                            ifelse(Consensus_vector_0.15 == "2", "RS-NET 2 (CON)",
+                                                   ifelse(Consensus_vector_0.15 == "3", "RS-NET 3 (SMN, CON)",
+                                                          ifelse(Consensus_vector_0.15 == "4", "RS-NET 4 (FPN, CON)",
+                                                                 "RS-NET 5 (VMM)"
+                                                          )
+                                                   )
+                                            )
+      ))
     
     # Grouped by Age
     epsilon <- 1e-1

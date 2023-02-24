@@ -137,7 +137,7 @@ cca_df %>%
   geom_vline(xintercept =0, color = "gray") +
   geom_point(aes(colour = Age), size = 4) + 
   geom_smooth(method = "lm", color = "black", alpha = .4, size = 2) +
-
+  
   labs(x = "Brain Mode", 
        y = "Behavioral Mode\n (Worse - Better performance)",
        title = "Canonical correlation between brain/behavioral modes") + 
@@ -197,7 +197,7 @@ mod1 <- lm(Behavioral_Mode~ Age, data = cca_df)
 summary(mod1)
 flexplot(Behavioral_Mode ~ Age, cca_df, method = "lm")
 
- # STEP 2: Indirect effect Mediator ~ IV
+# STEP 2: Indirect effect Mediator ~ IV
 mod2 <- lm(Brain_Mode~ Age, data = cca_df)
 summary(mod2)
 flexplot(Brain_Mode~Age, data = cca_df, method = "lm")
@@ -262,50 +262,224 @@ fit <- lavaan::sem(mod_bis, data = cca_df_med,
 summary(fit, standardized = FALSE, fit.measures = TRUE, rsquare = TRUE, ci = TRUE)
 parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized = FALSE)
 
+AIC(fit)
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+# Community-level
+################################################################################
+################################################################################
+################################################################################
+################################################################################
 
-# Representational similarity
 
-
-All_data_RSN <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
+Data_CCA_ComStruct <- merge(participants, CAMCAN_cognitive_data, by = "Observations") %>%
   merge(., CAMCAN_cognitive_data_supp, by = "Observations") %>%
   na.omit() %>%
-  merge(., Gradient_stats %>% dplyr::select(Subj_ID, Age, `1st_network`,
+  merge(., TFP_ComStruct_imputed_ILR %>% dplyr::select(Subj_ID, Age, Consensus_vector_0.15,
                                             Integration, Peripherisation, Polyvalent_interfaces), by = "Subj_ID")
 
-Cog_data_ILR_RSN <- All_data_RSN %>% 
-  na.omit() %>% 
+Cog_data_ILR_ComStruct <- Data_CCA_ComStruct %>%
+  na.omit() %>%
   mutate(ToT_Ratio_inverse = ToT_Ratio*(-1)) %>%
   mutate(Hotel_Task_inverse = Hotel_Task*(-1)) %>%
   dplyr::select(-c(ToT_Ratio, Hotel_Task)) %>%
   pivot_longer(c(Integration, Peripherisation, Polyvalent_interfaces),
                names_to = "topological_balances", values_to = "value") %>%
-  unite(BalancexRSN, "1st_network", "topological_balances", remove = FALSE) %>%
-  dplyr::select(-c(topological_balances, `1st_network`)) %>%
-  spread(BalancexRSN, value) 
-  
-
-cog_measures_RSN <- Cog_data_ILR_RSN[,c(4:9, 11:12)] %>% scale(.) %>% as.data.frame()
-
-rs_measures_RSN <- Cog_data_ILR_RSN[,13:45] %>% scale(.) %>% as.data.frame()
+  unite(BalancexRSN, "Consensus_vector_0.15", "topological_balances", remove = FALSE) %>%
+  dplyr::select(-c(topological_balances, Consensus_vector_0.15)) %>%
+  spread(BalancexRSN, value)
 
 
-# pca_loadings <- FactoMineR::PCA(rs_measures_RSN)
-# plot(pca_loadings)
+cog_measures_ComStruct <- Cog_data_ILR_ComStruct[,c(4:9, 11:12)] %>% scale(.) %>% as.data.frame()
+
+rs_measures_ComStruct <- Cog_data_ILR_ComStruct[,13:24] %>% scale(.) %>% as.data.frame()
+# getting median of each column using apply()
+all_column_median <- apply(rs_measures_ComStruct, 2, median, na.rm=TRUE)
+
+# imputing median value with NA
+for(i in colnames(rs_measures_ComStruct)) {
+  rs_measures_ComStruct[,i][is.na(rs_measures_ComStruct[,i])] <- all_column_median[i]
+}
+
+
+# pca_loadings <- FactoMineR::PCA(rs_measures_ComStruct)
 # pca_loadings$eig
 # contrib <- pca_loadings$var$contrib %>% as.data.frame()
 # rs_measures_pca <- pca_loadings$ind$coord[,1:4]
 
 
-ncors_integration <- 1-cor(cog_measures_RSN, rs_measures_RSN %>% dplyr::select(ends_with("Integration")))
-ncors_integration_plot <- ncors_integration >= quantile(ncors_integration, na.rm = TRUE)[3]
+desc_cca <- matcor(rs_measures_ComStruct, cog_measures_ComStruct)
+img.matcor(desc_cca, type = 2)
+
+cc_results <- cancor(rs_measures_ComStruct, cog_measures_ComStruct)
+cc_results$cor
+
+# Canonical loadings - correlation between variables and canonical variates
+cc_loadings <- cc(rs_measures_ComStruct, cog_measures_ComStruct)
+cc_results2 <- comput(rs_measures_ComStruct, cog_measures_ComStruct, cc_loadings)
+cc_results2[3:6]
+
+# tests of canonical dimensions
+rho <- cc_loadings$cor
+# Define number of observations, number of variables in first set, and number of variables in the second set.
+n <- dim(rs_measures_ComStruct)[1]
+p <- length(rs_measures_ComStruct)
+q <- length(cog_measures_ComStruct)
+
+# Calculate p-values using the F-approximations of different test statistics:
+p.asym(rho, n, p, q, tstat = "Wilks")
+
+################################################################################
+# FIGURES
+################################################################################
+library(flexplot)
+
+Brain_Mode <- as.matrix(rs_measures_ComStruct) %*% cc_results$xcoef[, 1]
+Behavioral_Mode <- as.matrix(cog_measures_ComStruct) %*% cc_results$ycoef[, 1]
+
+plot_ComStruct <- Cog_data_ILR_ComStruct %>% 
+  mutate(Brain_Mode=Brain_Mode*(-1),
+         Behavioral_Mode=Behavioral_Mode)
+
+flexplot(Brain_Mode~Age, plot_ComStruct, method = "lm")
+flexplot(Behavioral_Mode~Age, plot_ComStruct, method = "lm")
+
+plot_ComStruct %>% 
+  ggplot(aes(x=Brain_Mode, Behavioral_Mode))+
+  geom_hline(yintercept =0, color = "gray") +
+  geom_vline(xintercept =0, color = "gray") +
+  geom_point(aes(colour = Age), size = 4) + 
+  geom_smooth(method = "lm", color = "black", alpha = .4, size = 2) +
+  
+  labs(x = "Brain Mode", 
+       y = "Behavioral Mode\n (Worse - Better performance)",
+       title = "Canonical correlation between brain/behavioral modes") + 
+  annotate("text", fontface = "bold",
+           x = -0.15, y = -0.12, label = "Correlation = .29",
+           color = "black", size = 4
+  ) +
+  theme(plot.title.position = "plot") +
+  scale_color_viridis(option = "plasma") +
+  theme_classic2(base_size = 18)
+
+
+plot_loadings_x <- cc_loadings$scores$corr.X.yscores[,1] %>% as.data.frame() %>% 
+  rownames_to_column("Balances") %>% 
+  plyr::rename(c("." = "loading")) %>%
+  mutate(loading = loading * (-1)) %>% 
+  arrange(loading)
+
+plot_loadings_x$Balances <- factor(plot_loadings_x$Balances) %>%
+  fct_reorder(plot_loadings_x$loading, .desc = FALSE)
+
+ggplot(plot_loadings_x, aes(x = Balances, y = loading))+
+  geom_col(aes(fill = loading), alpha = .8) +
+  scale_fill_distiller(palette = "RdBu", direction = -1) +
+  coord_flip() +
+  labs(y = "Loadings", x = element_blank()) + 
+  theme_pubr(base_size = 18)
+
+plot_loadings_y <- cc_loadings$scores$corr.Y.yscores[,1] %>% as.data.frame() %>% 
+  rownames_to_column("Cognitive_assessment") %>% 
+  plyr::rename(c("." = "loading")) %>% 
+  arrange(loading)
+
+plot_loadings_y$Cognitive_assessment <- factor(plot_loadings_y$Cognitive_assessment) %>%
+  fct_reorder(plot_loadings_y$loading, .desc = FALSE)
+
+ggplot(plot_loadings_y, aes(x = Cognitive_assessment, y = loading))+
+  geom_col(aes(fill = loading), alpha = .8) +
+  scale_fill_distiller(palette = "RdBu", direction = 1) +
+  coord_flip() +
+  labs(y = "Loadings", x = element_blank()) + 
+  theme_pubr(base_size = 18)
+
+
+
+
+ncors_integration <- cor(cog_measures_ComStruct, rs_measures_ComStruct %>% dplyr::select(ends_with("Integration")))
+ncors_integration_plot <- ncors_integration %>% as.data.frame() %>% 
+  mutate_all(., funs(ifelse(. > quantile(ncors_integration, na.rm = TRUE)[2], NA, .))) %>% 
+  as.matrix()
+
 
 library(circlize)
+circlize::chordDiagram(ncors_integration_plot,
+                       transparency = .2,
+                       link.lwd = 1,    # Line width
+                       link.lty = 1,    # Line type
+                       link.border = 1) # Border color)
 
-circlize::chordDiagram(ncors_integration_plot)
-
-ncors_peri <- 1-cor(cog_measures_RSN, rs_measures_RSN %>% dplyr::select(ends_with("Peripherisation")))
-ncors_peri_plot <- ncors_peri >= quantile(ncors_peri, na.rm = TRUE)[3]
+ncors_peri <- cor(cog_measures_ComStruct, rs_measures_ComStruct %>% dplyr::select(ends_with("Peripherisation")))
+ncors_peri_plot <- ncors_peri %>% as.data.frame() %>% 
+  mutate_all(., funs(ifelse(. > quantile(ncors_peri, na.rm = TRUE)[2], NA, .))) %>%  
+  as.matrix()
 
 library(circlize)
+circlize::chordDiagram(ncors_peri_plot,
+                       transparency = .2,
+                       link.lwd = 1,    # Line width
+                       link.lty = 1,    # Line type
+                       link.border = 1)
 
-circlize::chordDiagram(ncors_peri_plot)
+
+# At the connectomic level
+efficiencies_connectome <- data_functional_role %>%
+  dplyr::select(Subj_ID, Eglob, Eloc) %>%
+  group_by(Subj_ID) %>%
+  summarize_at(vars(Eglob, Eloc), mean) %>%
+  mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob)) %>% 
+  ungroup()
+
+# At the ROI level
+efficiencies_ROI <- data_functional_role %>%
+  dplyr::select(Subj_ID, Region, Eglob, Eloc) %>% 
+  mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob)) %>% 
+  group_by(Subj_ID) %>% 
+  summarize_at(vars(Eglob, Eloc, Balance_eff), mean) %>% ungroup()
+
+mediation_ComStruct <- plot_ComStruct %>% 
+  merge(., efficiencies_ROI, by = "Subj_ID") %>% 
+  dplyr::select(Behavioral_Mode, Brain_Mode, Age, Eloc) %>% scale(.) %>% 
+  as.data.frame()
+
+# med <- robmed::test_mediation(Behavioral_Mode~m(Brain_Mode) + Age, data = cca_df_med, robust = "MM")
+# summary(med)
+
+library(lavaan)
+library(sem)
+library(semPlot)
+
+library(processR)
+
+write.csv(cca_df_med, 'file_mediation_ComStruct.csv')
+
+labels=list(X="Age",M1="Brain_Mode", M2 = "Eloc", M3 = "Balance I/S", Y="Behavioral_Mode")
+par(mfrow = c(1,1), mar=c(0,0,0,0), oma=c(0,0,0,0))
+pmacroModel(6,labels=labels)
+statisticalDiagram(6, labels=labels)
+
+
+mod <- "
+# Mediation Effect
+Behavioral_Mode ~ b1*Brain_Mode+b2*Eloc+c1*Age
+Brain_Mode ~ a1*Age
+Eloc ~ a2*Age+d1*Brain_Mode
+ind1:=a1*b1
+ind2:=a2*b2
+secondInd1:=a1*d1*b2
+total1:=c1+a1*b1+a2*b2+a1*d1*b2
+"
+
+set.seed(2023)
+fit <- lavaan::sem(mod, data = mediation_ComStruct, 
+                   se = "bootstrap", bootstrap = 1000, 
+                   fixed.x=FALSE, meanstructure = TRUE)
+
+summary(fit, standardized = FALSE, fit.measures = TRUE, rsquare = TRUE, ci = TRUE)
+parameterEstimates(fit, level = 0.95, boot.ci.type = "bca.simple", standardized = FALSE)
+
+AIC(fit)

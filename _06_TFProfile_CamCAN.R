@@ -174,6 +174,7 @@ TFP_General_imputed_stats %>%
 ################################################################################
 # Decomposition at the RSN-level
 ################################################################################
+
 list_TFP_RSN <- TFP_RSN %>% 
   group_by(`1st_network`) %>% group_split()
 
@@ -236,14 +237,271 @@ TFP_RSN_imputed <- rbindlist(list_raw_imputed)
 TFP_RSN_CLR <- rbindlist(list_tmp)
 
 
-RSN <- "DMN"
+# RSN <- "DMN"
+# 
+# TFP_RSN_CLR %>%
+#   filter(grepl(RSN, `1st_network`)) %>%
+#   # dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+#   dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+#   pivot_longer(
+#     cols = !c("Subj_ID", "Age"),
+#     names_to = "Functional_role",
+#     values_to = "Score"
+#   ) %>%
+#   ggplot(aes(Age, Score, color = Functional_role)) +
+#   geom_hline(yintercept = 0, color = "red") +
+#   geom_jitter(height = 0.05, alpha = 0.1) +
+#   geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
+#   scale_x_continuous(breaks = seq(20, 90, 5)) +
+#   scale_y_continuous(breaks = seq(-1, 1, 0.1)) +
+#   coord_cartesian(ylim = c(-0.2, 0.2)) +
+#   scale_color_brewer(palette = "PuOr") +
+#   theme_pubclean(base_size = 18) +
+#   theme(plot.title.position = "plot") +
+#   labs(y = "Centered log-ratios") +
+#   ggtitle("Evolution of modular functional roles across adult lifespan")
 
-TFP_RSN_CLR %>%
-  filter(grepl(RSN, `1st_network`)) %>%
-  # dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
-  dplyr::select(Subj_ID, Age, Connector:Peripheral) %>%
+
+################################################################################
+# GRADIENT ANALYSIS
+################################################################################
+# 
+# Gradient_stats <- TFP_RSN_imputed %>% 
+#   # Integration
+#   mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
+#   # Peripherisation
+#   mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
+#   # Internodal role reconfiguration
+#   mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2)))))
+# 
+# # Gradient loadings
+# Gradient_stats$`1st_network` <- factor(Gradient_stats$`1st_network`) %>% 
+#   fct_reorder(Gradient_stats$G1, .desc = FALSE)
+# 
+# ggplot(Gradient_stats %>% group_by(`1st_network`) %>% 
+#          summarize_at(vars(G1), mean), aes(`1st_network`, G1)) +
+#   geom_col(aes(fill = G1)) +
+#   scale_fill_distiller(palette = "RdBu", direction = -1) +
+#   scale_y_continuous(breaks = seq(-8, 8, 2)) +
+#   coord_flip() +
+#   geom_hline(yintercept = 0, color = "red") +
+#   theme_classic2(base_size = 18)
+# 
+# 
+# # Integration
+# 
+# mod_lin <- mgcv::gam(Integration~Age*G1,
+#                      data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sAge <- mgcv::gam(Integration~s(Age, by = G1),
+#                      data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sG1 <- mgcv::gam(Integration~s(G1, by = Age),
+#                      data = Gradient_stats, method = "REML")
+# 
+# mod_gam_full <- mgcv::gam(Integration~s(Age) + s(G1, k = 20) + 
+#                        ti(Age, G1),
+#                      data = Gradient_stats, method = "REML")
+# 
+# 
+# AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+# summary(mod_gam_full)
+# 
+# mgcv::vis.gam(mod_gam_full, view = c("Age", "G1"),
+#         plot.type = "persp", theta = 55, phi = 15,
+#         n.grid = 30, lwd = 0.4, 
+#         color = "topo", ticktype = "detailed")
+# 
+# Gradient_stats %>% 
+#   filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
+#   group_by(`1st_network`) %>% 
+#   mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
+#   ungroup() %>% 
+#   ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(`1st_network`))) +
+#   geom_hline(yintercept = 0, color = "red") +
+#   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+#   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+#   scale_x_continuous(breaks = seq(20, 90, 10)) +
+#   scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+#   coord_cartesian(ylim = c(-0.2, 0.3)) +
+#   scale_color_brewer(palette = "RdBu") +
+#   theme_classic2(base_size = 18) +
+#   theme(plot.title.position = "plot") +
+#   labs(y = "Integraion\n (z-scored ILR)",
+#        color = "RSN") +
+#   ggtitle("Modulation of the Integration mechanism by RSN across the adult lifespan")
+# 
+# Gradient_stats %>% 
+#   mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
+#   filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
+#   group_by(G1_binned) %>% 
+#   mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
+#   ungroup() %>% 
+#   ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(G1_binned))) +
+#   geom_hline(yintercept = 0, color = "red") +
+#   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+#   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+#   scale_x_continuous(breaks = seq(20, 90, 10)) +
+#   scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
+#   coord_cartesian(ylim = c(-0.2, 0.3)) +
+#   scale_color_brewer(palette = "RdBu") +
+#   theme_classic2(base_size = 18) +
+#   theme(plot.title.position = "plot") +
+#   labs(y = "Integration\n (z-scored ILR)",
+#        color = "G1") +
+#   ggtitle("Modulation of the Integration mechanism by G1\n across the adult lifespan")
+# 
+# 
+# # Peripherisation
+# 
+# mod_lin <- mgcv::gam(Peripherisation~Age*G1,
+#                      data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sAge <- mgcv::gam(Peripherisation~s(Age, by = G1),
+#                           data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sG1 <- mgcv::gam(Peripherisation~s(G1, by = Age),
+#                          data = Gradient_stats, method = "REML")
+# 
+# mod_gam_full <- mgcv::gam(Peripherisation~s(Age) + s(G1, k = 20) + 
+#                             ti(Age, G1),
+#                           data = Gradient_stats, method = "REML")
+# 
+# 
+# AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+# summary(mod_gam_full)
+# 
+# Gradient_stats %>% 
+#   filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
+#   group_by(`1st_network`) %>% 
+#   mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
+#   ungroup() %>% 
+#   ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(`1st_network`))) +
+#   geom_hline(yintercept = 0, color = "red") +
+#   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+#   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+#   scale_x_continuous(breaks = seq(20, 90, 10)) +
+#   scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
+#   coord_cartesian(ylim = c(-0.2, 0.2)) +
+#   scale_color_brewer(palette = "RdBu") +
+#   theme_classic2(base_size = 18) +
+#   theme(plot.title.position = "plot") +
+#   labs(y = "Peripherisation\n (z-scored ILR)",
+#        color = "G1") +
+#   ggtitle("Modulation of the Peripherisation mechanism by RSN across the adult lifespan")
+# 
+# 
+# Gradient_stats %>% 
+#   mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
+#   group_by(G1_binned) %>% 
+#   mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
+#   ungroup() %>% 
+#   ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(G1_binned))) +
+#   geom_hline(yintercept = 0, color = "red") +
+#   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+#   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+#   scale_x_continuous(breaks = seq(20, 90, 10)) +
+#   scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
+#   coord_cartesian(ylim = c(-0.2, 0.2)) +
+#   scale_color_brewer(palette = "RdBu") +
+#   theme_classic2(base_size = 18) +
+#   theme(plot.title.position = "plot") +
+#   labs(y = "Peripherisation\n (z-scored ILR)",
+#        color = "G1") +
+#   ggtitle("Modulation of the Peripherisation mechanism by G1 across the adult lifespan")
+# 
+# 
+# 
+# # Polyvalent_Interfaces 
+# mod_lin <- mgcv::gam(Polyvalent_interfaces~Age*G1,
+#                      data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sAge <- mgcv::gam(Polyvalent_interfaces~s(Age, by = G1),
+#                           data = Gradient_stats, method = "REML")
+# 
+# mod_gam_sG1 <- mgcv::gam(Polyvalent_interfaces~s(G1, by = Age),
+#                          data = Gradient_stats, method = "REML")
+# 
+# mod_gam_full <- mgcv::gam(Polyvalent_interfaces~s(Age) + s(G1, k = 20) + 
+#                             ti(Age, G1),
+#                           data = Gradient_stats, method = "REML")
+# 
+# 
+# AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
+# summary(mod_gam_full)
+
+
+
+
+################################################################################
+# Decomposition at the Community-level
+################################################################################
+
+list_TFP_ComStruct <- TFP_ComStruct %>% 
+  group_by(Consensus_vector_0.15) %>% group_split()
+
+list_tmp <- list()
+list_raw_imputed <- list()
+for (i in 1:length(list_TFP_ComStruct)) {
+  library(zCompositions)
+  library(compositions)
+  
+  tmp_raw <- rbindlist(list_TFP_ComStruct[i]) %>% arrange(Subj_ID) 
+  
+  tmp_coda_modular <- tmp_raw %>%
+    dplyr::select(Connector, Satellite, Provincial, Peripheral)
+  
+  if (min(tmp_coda_modular) == 0) {
+    tmp_coda_modular_bis <- tmp_coda_modular %>% 
+      acomp(.) %>% 
+      cmultRepl(., output = "prop")
+  } else {
+    tmp_coda_modular_bis <- tmp_coda_modular
+  }
+  
+  
+  tmp_coda_internodal <- tmp_raw %>%
+    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
+  
+  if (min(tmp_coda_internodal) == 0) {
+    tmp_coda_internodal_bis <- tmp_coda_internodal %>% 
+      acomp(.) %>%
+      cmultRepl(., output = "prop")
+  } else {
+    tmp_coda_internodal_bis <- tmp_coda_internodal
+  }
+  
+  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
+                                                        Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)),
+                           tmp_coda_modular_bis, 
+                           tmp_coda_internodal_bis)
+  
+  list_raw_imputed[[i]] <- tmp_raw_imputed
+  
+  
+  tmp_geometric_all <- tmp_raw_imputed %>% 
+    summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
+  
+  tmp_final <- tmp_raw_imputed %>% 
+    mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
+    mutate(Provincial = log(Provincial / tmp_geometric_all$Provincial)) %>%
+    mutate(Satellite = log(Satellite / tmp_geometric_all$Satellite)) %>%
+    mutate(Peripheral = log(Peripheral / tmp_geometric_all$Peripheral)) %>% 
+    mutate(Global_Bridge = log(Global_Bridge / tmp_geometric_all$Global_Bridge)) %>%
+    mutate(Local_Bridge = log(Local_Bridge / tmp_geometric_all$Local_Bridge)) %>%
+    mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
+    mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
+  
+  list_tmp[[i]] <- tmp_final
+}
+
+TFP_ComStruct_imputed <- rbindlist(list_raw_imputed)
+TFP_ComStruct_CLR <- rbindlist(list_tmp)
+
+TFP_ComStruct_CLR %>%
+  dplyr::select(Subj_ID, Age, Connector:Peripheral, Consensus_vector_0.15) %>%
   pivot_longer(
-    cols = !c("Subj_ID", "Age"),
+    cols = !c("Subj_ID", "Age", "Consensus_vector_0.15"),
     names_to = "Functional_role",
     values_to = "Score"
   ) %>%
@@ -258,184 +516,78 @@ TFP_RSN_CLR %>%
   theme_pubclean(base_size = 18) +
   theme(plot.title.position = "plot") +
   labs(y = "Centered log-ratios") +
-  ggtitle("Evolution of modular functional roles across adult lifespan")
+  facet_wrap(~Consensus_vector_0.15) +
+  ggtitle("Evolution of modular functional roles across the adult lifespan")
+
+TFP_ComStruct_CLR %>%
+  dplyr::select(Subj_ID, Age, Consensus_vector_0.15, Eloc, Eglob) %>%
+  pivot_longer(
+    cols = !c("Subj_ID", "Age", "Consensus_vector_0.15"),
+    names_to = "Efficiencies",
+    values_to = "value"
+  ) %>%
+  group_by(Consensus_vector_0.15, Efficiencies) %>% 
+  mutate(value = as.numeric(scale(value))) %>% 
+  ggplot(aes(Age, value, color = Efficiencies)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "lm", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  scale_y_continuous(breaks = seq(-0.5, 0.7, 0.2)) +
+  coord_cartesian(ylim = c(-0.5, 0.7)) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Normalized Efficiencies") +
+  facet_wrap(~Consensus_vector_0.15) +
+  ggtitle("Evolution of the Balance I/S across the adult lifespan")
 
 
-################################################################################
-# GRADIENT ANALYSIS
-################################################################################
-
-geometric_all <- TFP_RSN_imputed %>% 
-  summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
-
-Gradient_stats <- TFP_RSN_imputed %>% 
+TFP_ComStruct_imputed_ILR <- TFP_ComStruct_imputed %>% 
   # Integration
   mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
   # Peripherisation
   mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
   # Internodal role reconfiguration
-  mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2))))) %>% 
-# Standardized to CLR space
-  mutate(Connector = log(Connector / geometric_all$Connector)) %>%
-  mutate(Provincial = log(Provincial / geometric_all$Provincial)) %>%
-  mutate(Satellite = log(Satellite / geometric_all$Satellite)) %>%
-  mutate(Peripheral = log(Peripheral / geometric_all$Peripheral)) 
+  mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2)))))
 
-# Gradient loadings
-Gradient_stats$`1st_network` <- factor(Gradient_stats$`1st_network`) %>% 
-  fct_reorder(Gradient_stats$G1, .desc = FALSE)
-
-ggplot(Gradient_stats %>% group_by(`1st_network`) %>% 
-         summarize_at(vars(G1), mean), aes(`1st_network`, G1)) +
-  geom_col(aes(fill = G1)) +
-  scale_fill_distiller(palette = "RdBu", direction = -1) +
-  scale_y_continuous(breaks = seq(-8, 8, 2)) +
-  coord_flip() +
-  geom_hline(yintercept = 0, color = "red") +
-  theme_classic2(base_size = 18)
-
-
-# Integration
-
-mod_lin <- mgcv::gam(Integration~Age*G1,
-                     data = Gradient_stats, method = "REML")
-
-mod_gam_sAge <- mgcv::gam(Integration~s(Age, by = G1),
-                     data = Gradient_stats, method = "REML")
-
-mod_gam_sG1 <- mgcv::gam(Integration~s(G1, by = Age),
-                     data = Gradient_stats, method = "REML")
-
-mod_gam_full <- mgcv::gam(Integration~s(Age) + s(G1, k = 20) + 
-                       ti(Age, G1),
-                     data = Gradient_stats, method = "REML")
-
-
-AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
-summary(mod_gam_full)
-
-mgcv::vis.gam(mod_gam_full, view = c("Age", "G1"),
-        plot.type = "persp", theta = 55, phi = 15,
-        n.grid = 30, lwd = 0.4, 
-        color = "topo", ticktype = "detailed")
-
-Gradient_stats %>% 
-  filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
-  group_by(`1st_network`) %>% 
-  mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(`1st_network`))) +
+TFP_ComStruct_imputed_ILR %>%
+  filter(Consensus_vector_0.15 != 5) %>% 
+  group_by(Consensus_vector_0.15) %>%
+  mutate(Integration_scaled = as.numeric(scale(Integration))) %>%
+  ungroup() %>%
+  ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(Consensus_vector_0.15))) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.3)) +
-  scale_color_brewer(palette = "RdBu") +
+  scale_y_continuous(breaks = seq(-0.4, 0.4, 0.1)) +
+  coord_cartesian(ylim = c(-0.4, 0.4)) +
+  scale_color_brewer(palette = "Dark2") +
   theme_classic2(base_size = 18) +
   theme(plot.title.position = "plot") +
   labs(y = "Integraion\n (z-scored ILR)",
        color = "RSN") +
   ggtitle("Modulation of the Integration mechanism by RSN across the adult lifespan")
 
-Gradient_stats %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
-  filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
-  group_by(G1_binned) %>% 
-  mutate(Integration_scaled = as.numeric(scale(Integration))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, Integration_scaled, color = forcats::fct_rev(G1_binned))) +
+TFP_ComStruct_imputed_ILR %>%
+  filter(Consensus_vector_0.15 != 5) %>% 
+  group_by(Consensus_vector_0.15) %>%
+  mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>%
+  ungroup() %>%
+  ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(Consensus_vector_0.15))) +
   geom_hline(yintercept = 0, color = "red") +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.3, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.3)) +
-  scale_color_brewer(palette = "RdBu") +
-  theme_classic2(base_size = 18) +
-  theme(plot.title.position = "plot") +
-  labs(y = "Integration\n (z-scored ILR)",
-       color = "G1") +
-  ggtitle("Modulation of the Integration mechanism by G1\n across the adult lifespan")
-
-
-# Peripherisation
-
-mod_lin <- mgcv::gam(Peripherisation~Age*G1,
-                     data = Gradient_stats, method = "REML")
-
-mod_gam_sAge <- mgcv::gam(Peripherisation~s(Age, by = G1),
-                          data = Gradient_stats, method = "REML")
-
-mod_gam_sG1 <- mgcv::gam(Peripherisation~s(G1, by = Age),
-                         data = Gradient_stats, method = "REML")
-
-mod_gam_full <- mgcv::gam(Peripherisation~s(Age) + s(G1, k = 20) + 
-                            ti(Age, G1),
-                          data = Gradient_stats, method = "REML")
-
-
-AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
-summary(mod_gam_full)
-
-Gradient_stats %>% 
-  filter(!(grepl("VMM|PMM", `1st_network`))) %>% 
-  group_by(`1st_network`) %>% 
-  mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(`1st_network`))) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "RdBu") +
+  scale_y_continuous(breaks = seq(-0.4, 0.4, 0.1)) +
+  coord_cartesian(ylim = c(-0.4, 0.4)) +
+  scale_color_brewer(palette = "Dark2") +
   theme_classic2(base_size = 18) +
   theme(plot.title.position = "plot") +
   labs(y = "Peripherisation\n (z-scored ILR)",
-       color = "G1") +
+       color = "RSN") +
   ggtitle("Modulation of the Peripherisation mechanism by RSN across the adult lifespan")
-
-
-Gradient_stats %>% 
-  mutate(G1_binned = Hmisc::cut2(G1, g = 4, levels.mean = TRUE)) %>% 
-  group_by(G1_binned) %>% 
-  mutate(Peripherisation_scaled = as.numeric(scale(Peripherisation))) %>% 
-  ungroup() %>% 
-  ggplot(aes(Age, Peripherisation_scaled, color = forcats::fct_rev(G1_binned))) +
-  geom_hline(yintercept = 0, color = "red") +
-  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
-  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
-  scale_x_continuous(breaks = seq(20, 90, 10)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "RdBu") +
-  theme_classic2(base_size = 18) +
-  theme(plot.title.position = "plot") +
-  labs(y = "Peripherisation\n (z-scored ILR)",
-       color = "G1") +
-  ggtitle("Modulation of the Peripherisation mechanism by G1 across the adult lifespan")
-
-
-
-# Polyvalent_Interfaces 
-mod_lin <- mgcv::gam(Polyvalent_interfaces~Age*G1,
-                     data = Gradient_stats, method = "REML")
-
-mod_gam_sAge <- mgcv::gam(Polyvalent_interfaces~s(Age, by = G1),
-                          data = Gradient_stats, method = "REML")
-
-mod_gam_sG1 <- mgcv::gam(Polyvalent_interfaces~s(G1, by = Age),
-                         data = Gradient_stats, method = "REML")
-
-mod_gam_full <- mgcv::gam(Polyvalent_interfaces~s(Age) + s(G1, k = 20) + 
-                            ti(Age, G1),
-                          data = Gradient_stats, method = "REML")
-
-
-AIC(mod_lin, mod_gam_sAge, mod_gam_sG1, mod_gam_full)
-summary(mod_gam_full)
 
 ################################################################################
 # DESCRIPTIVES
