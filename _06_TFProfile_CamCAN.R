@@ -25,6 +25,7 @@ TFP_General %>%
   mutate(value = as.numeric(scale(value))) %>% 
   ggplot(aes(Age, value, color = Efficiencies)) +
   geom_hline(yintercept = 0, color = "red") +
+  geom_vline(xintercept = 54, color = "red", linewidth = 1.5, alpha = 1) +
   geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
   geom_smooth(linewidth = 2, method = "lm", alpha = .1) +
   scale_x_continuous(breaks = seq(20, 90, 5)) +
@@ -32,10 +33,11 @@ TFP_General %>%
   coord_cartesian(ylim = c(-0.5, 0.7)) +
   scale_color_brewer(palette = "Dark2", 
                      labels = c("Balance I/S", "Global efficiency", "Local efficiency")) +
-  theme_classic2(base_size = 18) +
+  theme_pubclean(base_size = 18) +
   theme(plot.title.position = "plot") +
   labs(y = "Normalized efficiencies") +
-  ggtitle("Evolution of the balance I/S across the adult lifespan")
+  ggtitle("Functional network dynamics across the adult lifespan", 
+          subtitle = "Inflection point: 54 yo")
 
 
 ############################################################################
@@ -50,9 +52,9 @@ library(compositions)
 
 tmp_coda_modular <- TFP_General %>%
   dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
-  acomp(.) %>% 
+  acomp(.)
   # Preserves the ratios between non-zero components
-  cmultRepl(., output = "prop")
+  # cmultRepl(., output = "prop")
 
 tmp_coda_internodal <- TFP_General %>%
   dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge) %>%
@@ -89,15 +91,16 @@ TFP_General_imputed %>%
   geom_jitter(height = 0.05, alpha = 0.1) +
   geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
   scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
+  scale_y_continuous(breaks = seq(-0.15, 0.15, 0.1)) +
+  coord_cartesian(ylim = c(-0.15, 0.15)) +
   scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
+  geom_vline(xintercept = 54, color = "red", linewidth = 1.5, alpha = 1) +
   theme_pubclean(base_size = 18) +
-  theme(plot.title.position = "plot") +
+  theme(plot.title.position = "plot",
+        legend.title = element_blank()) +
   labs(y = "Centered log-ratios") +
   
-  ggtitle("Evolution of modular functional roles across adult lifespan")
+  ggtitle("Lifespan dynamics of modular topological roles")
 
 
 # For internodal roles
@@ -118,16 +121,18 @@ TFP_General_imputed %>%
   geom_jitter(height = 0.05, alpha = 0.1) +
   geom_smooth(linewidth = 2, method = "gam", alpha = .3) +
   scale_x_continuous(breaks = seq(20, 90, 5)) +
-  scale_y_continuous(breaks = seq(-0.2, 0.2, 0.1)) +
-  coord_cartesian(ylim = c(-0.2, 0.2)) +
-  scale_color_brewer(palette = "PuOr") +
-  geom_vline(xintercept = 52, color = "red", linewidth = 1.5, alpha = 1) +
+  scale_y_continuous(breaks = seq(-0.15, 0.15, 0.1)) +
+  coord_cartesian(ylim = c(-0.15, 0.15)) +
+  scale_color_brewer(palette = "PuOr",
+                     labels = c("Global Interface", "Local_Interface", "Sub-Interface", "Super-Interface")) +
+  geom_vline(xintercept = 54, color = "red", linewidth = 1.5, alpha = 1) +
   theme_pubclean(base_size = 18) +
-  theme(plot.title.position = "plot") +
+  theme(plot.title.position = "plot",
+        legend.title = element_blank()) +
   labs(y = "Centered log-ratios") +
   
-  ggtitle("Evolution of internodal functional roles across adult lifespan")
-  # facet_wrap(~Functional_role)
+  ggtitle("Lifespan dynamics of interface topological roles")
+# facet_wrap(~Functional_role)
 
 ############################################################################
 # DEFINING ILRs (ISOMETRIC LOG-RATIOS)
@@ -135,106 +140,116 @@ TFP_General_imputed %>%
 
 TFP_General_imputed_stats <- TFP_General_imputed %>% 
   # Integration
-  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
-  # Peripherisation
-  mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
+  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>%
+  # Segregation
+  mutate(Segregation = ((3/4)^0.5)*log(Provincial/(Connector*Satellite*Peripheral)^(1/3))) %>% 
+  # Peripheralization
+  mutate(Peripheralization = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
   # Internodal role reconfiguration
-  mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2))))) 
+  mutate(Polyvalence = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2))))) 
 
 mgcv::gam(Integration~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
-mgcv::gam(Peripherisation~s(Age), data = TFP_General_imputed_stats) %>% 
+mgcv::gam(Segregation~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
-mgcv::gam(Polyvalent_interfaces~s(Age), data = TFP_General_imputed_stats) %>% 
+mgcv::gam(Peripheralization~s(Age), data = TFP_General_imputed_stats) %>% 
+  summary()
+
+mgcv::gam(Polyvalence~s(Age), data = TFP_General_imputed_stats) %>% 
   summary()
 
 TFP_General_imputed_stats %>%  
   pivot_longer(c(Integration, 
-                 Peripherisation,
-                 Polyvalent_interfaces),
+                 Segregation,
+                 Peripheralization,
+                 Polyvalence),
                names_to = "topological_balances",
                values_to = "balance") %>% 
   group_by(topological_balances) %>% mutate(balance = as.numeric(scale(balance))) %>% 
   ggplot(aes(Age, balance, color = topological_balances)) +
   geom_hline(yintercept = 0, color = "red") +
+  geom_hline(yintercept = 0, color = "red") +
+  
   geom_jitter(height = 0.05, alpha = 0.15, size = 4) +
   geom_smooth(linewidth = 2, method = "gam", alpha = .1) +
   scale_x_continuous(breaks = seq(20, 90, 10)) +
   scale_y_continuous(breaks = seq(-0.4, 0.4, 0.1)) +
+  geom_vline(xintercept = 54, color = "red", linewidth = 1.5, alpha = 1) +
   coord_cartesian(ylim = c(-0.4, 0.4)) +
   theme_pubr(base_size = 18) +
-  theme(plot.title.position = "plot") +
-  labs(y = "Isometric log-ratios \n (z-scored)", color = "Topological balances") +
+  theme(plot.title.position = "plot",
+        legend.title = element_blank()) +
+  labs(y = "Isometric log-ratios \n (z-scored)") +
   scale_color_brewer(palette = "Dark2") +
-  ggtitle("Evolution of topological balances across the adult lifespan")
+  ggtitle("Lifespan dynamic of the topological landscape")
 
 
 ################################################################################
 # Decomposition at the RSN-level
 ################################################################################
-
-list_TFP_RSN <- TFP_RSN %>% 
-  group_by(`1st_network`) %>% group_split()
-
-list_tmp <- list()
-list_raw_imputed <- list()
-for (i in 1:length(list_TFP_RSN)) {
-  library(zCompositions)
-  library(compositions)
-  
-  tmp_raw <- rbindlist(list_TFP_RSN[i]) %>% arrange(Subj_ID) 
-  
-  tmp_coda_modular <- tmp_raw %>%
-    dplyr::select(Connector, Satellite, Provincial, Peripheral)
-  
-  if (min(tmp_coda_modular) == 0) {
-    tmp_coda_modular_bis <- tmp_coda_modular %>% 
-      acomp(.) %>% 
-      cmultRepl(., output = "prop")
-  } else {
-    tmp_coda_modular_bis <- tmp_coda_modular
-  }
-  
-  
-  tmp_coda_internodal <- tmp_raw %>%
-    dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
-  
-  if (min(tmp_coda_internodal) == 0) {
-    tmp_coda_internodal_bis <- tmp_coda_internodal %>% 
-      acomp(.) %>%
-      cmultRepl(., output = "prop")
-  } else {
-    tmp_coda_internodal_bis <- tmp_coda_internodal
-  }
-  
-  tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
-                                                        Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)),
-                           tmp_coda_modular_bis, 
-                           tmp_coda_internodal_bis)
-  
-  list_raw_imputed[[i]] <- tmp_raw_imputed
-  
-  
-  tmp_geometric_all <- tmp_raw_imputed %>% 
-    summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
-  
-  tmp_final <- tmp_raw_imputed %>% 
-    mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
-    mutate(Provincial = log(Provincial / tmp_geometric_all$Provincial)) %>%
-    mutate(Satellite = log(Satellite / tmp_geometric_all$Satellite)) %>%
-    mutate(Peripheral = log(Peripheral / tmp_geometric_all$Peripheral)) %>% 
-    mutate(Global_Bridge = log(Global_Bridge / tmp_geometric_all$Global_Bridge)) %>%
-    mutate(Local_Bridge = log(Local_Bridge / tmp_geometric_all$Local_Bridge)) %>%
-    mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
-    mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
-  
-  list_tmp[[i]] <- tmp_final
-}
-
-TFP_RSN_imputed <- rbindlist(list_raw_imputed)
-TFP_RSN_CLR <- rbindlist(list_tmp)
+# 
+# list_TFP_RSN <- TFP_RSN %>% 
+#   group_by(`1st_network`) %>% group_split()
+# 
+# list_tmp <- list()
+# list_raw_imputed <- list()
+# for (i in 1:length(list_TFP_RSN)) {
+#   library(zCompositions)
+#   library(compositions)
+#   
+#   tmp_raw <- rbindlist(list_TFP_RSN[i]) %>% arrange(Subj_ID) 
+#   
+#   tmp_coda_modular <- tmp_raw %>%
+#     dplyr::select(Connector, Satellite, Provincial, Peripheral)
+#   
+#   if (min(tmp_coda_modular) == 0) {
+#     tmp_coda_modular_bis <- tmp_coda_modular %>% 
+#       acomp(.) %>% 
+#       cmultRepl(., output = "prop")
+#   } else {
+#     tmp_coda_modular_bis <- tmp_coda_modular
+#   }
+#   
+#   
+#   tmp_coda_internodal <- tmp_raw %>%
+#     dplyr::select(Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)
+#   
+#   if (min(tmp_coda_internodal) == 0) {
+#     tmp_coda_internodal_bis <- tmp_coda_internodal %>% 
+#       acomp(.) %>%
+#       cmultRepl(., output = "prop")
+#   } else {
+#     tmp_coda_internodal_bis <- tmp_coda_internodal
+#   }
+#   
+#   tmp_raw_imputed <- cbind(tmp_raw %>% dplyr::select(-c(Connector, Satellite, Provincial, Peripheral,
+#                                                         Global_Bridge, Local_Bridge, Super_Bridge, Not_a_Bridge)),
+#                            tmp_coda_modular_bis, 
+#                            tmp_coda_internodal_bis)
+#   
+#   list_raw_imputed[[i]] <- tmp_raw_imputed
+#   
+#   
+#   tmp_geometric_all <- tmp_raw_imputed %>% 
+#     summarize_at(vars(Connector:Not_a_Bridge), funs(geometricmean(.)))
+#   
+#   tmp_final <- tmp_raw_imputed %>% 
+#     mutate(Connector = log(Connector / tmp_geometric_all$Connector)) %>%
+#     mutate(Provincial = log(Provincial / tmp_geometric_all$Provincial)) %>%
+#     mutate(Satellite = log(Satellite / tmp_geometric_all$Satellite)) %>%
+#     mutate(Peripheral = log(Peripheral / tmp_geometric_all$Peripheral)) %>% 
+#     mutate(Global_Bridge = log(Global_Bridge / tmp_geometric_all$Global_Bridge)) %>%
+#     mutate(Local_Bridge = log(Local_Bridge / tmp_geometric_all$Local_Bridge)) %>%
+#     mutate(Super_Bridge = log(Super_Bridge / tmp_geometric_all$Super_Bridge)) %>%
+#     mutate(Not_a_Bridge = log(Not_a_Bridge / tmp_geometric_all$Not_a_Bridge)) 
+#   
+#   list_tmp[[i]] <- tmp_final
+# }
+# 
+# TFP_RSN_imputed <- rbindlist(list_raw_imputed)
+# TFP_RSN_CLR <- rbindlist(list_tmp)
 
 
 # RSN <- "DMN"
@@ -498,6 +513,27 @@ for (i in 1:length(list_TFP_ComStruct)) {
 TFP_ComStruct_imputed <- rbindlist(list_raw_imputed)
 TFP_ComStruct_CLR <- rbindlist(list_tmp)
 
+TFP_ComStruct_imputed %>%
+  dplyr::select(Subj_ID, Age, Connector:Peripheral, Consensus_vector_0.15) %>%
+  pivot_longer(
+    cols = !c("Subj_ID", "Age", "Consensus_vector_0.15"),
+    names_to = "Functional_role",
+    values_to = "Score"
+  ) %>%
+  ggplot(aes(Age, Score, color = Functional_role)) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.1) +
+  geom_smooth(linewidth = 2, method = "lm", alpha = .3) +
+  scale_x_continuous(breaks = seq(20, 90, 5)) +
+  scale_y_continuous(breaks = seq(0, 0.5, 0.1)) +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  scale_color_brewer(palette = "PuOr") +
+  theme_pubclean(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Raw proportions") +
+  facet_wrap(~Consensus_vector_0.15, scales = "free") +
+  ggtitle("Evolution of modular functional roles across the adult lifespan")
+
 TFP_ComStruct_CLR %>%
   dplyr::select(Subj_ID, Age, Connector:Peripheral, Consensus_vector_0.15) %>%
   pivot_longer(
@@ -544,12 +580,16 @@ TFP_ComStruct_CLR %>%
 
 
 TFP_ComStruct_imputed_ILR <- TFP_ComStruct_imputed %>% 
+  filter(Consensus_vector_0.15 != "RS-NET 5 (VMM)") %>% 
   # Integration
-  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>% 
+  mutate(Integration = ((3/4)^0.5)*log(Connector/(Provincial*Satellite*Peripheral)^(1/3))) %>%
+  # Segregation
+  mutate(Segregation = ((3/4)^0.5)*log(Provincial/(Connector*Satellite*Peripheral)^(1/3))) %>% 
   # Peripherisation
   mutate(Peripherisation = ((3/4)^0.5)*log(Peripheral/(Provincial*Satellite*Connector)^(1/3))) %>% 
   # Internodal role reconfiguration
   mutate(Polyvalent_interfaces = (((2/3)^0.5)*log((Super_Bridge)^(1)/((Global_Bridge*Local_Bridge)^(1/2)))))
+
 
 TFP_ComStruct_imputed_ILR %>%
   filter(Consensus_vector_0.15 != 5) %>% 
@@ -569,6 +609,25 @@ TFP_ComStruct_imputed_ILR %>%
   labs(y = "Integraion\n (z-scored ILR)",
        color = "RSN") +
   ggtitle("Modulation of the Integration mechanism by RSN across the adult lifespan")
+
+TFP_ComStruct_imputed_ILR %>%
+  filter(Consensus_vector_0.15 != 5) %>% 
+  group_by(Consensus_vector_0.15) %>%
+  mutate(Segregation_scaled = as.numeric(scale(Segregation))) %>%
+  ungroup() %>%
+  ggplot(aes(Age, Segregation_scaled, color = forcats::fct_rev(Consensus_vector_0.15))) +
+  geom_hline(yintercept = 0, color = "red") +
+  geom_jitter(height = 0.05, alpha = 0.05, size = 4) +
+  geom_smooth(linewidth = 2, method = "gam", alpha = 0) +
+  scale_x_continuous(breaks = seq(20, 90, 10)) +
+  scale_y_continuous(breaks = seq(-0.4, 0.4, 0.1)) +
+  coord_cartesian(ylim = c(-0.4, 0.4)) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_classic2(base_size = 18) +
+  theme(plot.title.position = "plot") +
+  labs(y = "Segregation\n (z-scored ILR)",
+       color = "RSN") +
+  ggtitle("Modulation of the Segregation mechanism by RSN across the adult lifespan")
 
 TFP_ComStruct_imputed_ILR %>%
   filter(Consensus_vector_0.15 != 5) %>% 

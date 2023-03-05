@@ -15,7 +15,7 @@ source("_05_Hub_detection_CamCAN.R")
 
 data_coda_modular <- TFP_General %>%
   dplyr::select(Connector, Satellite, Provincial, Peripheral) %>% 
-  acomp(.) %>%
+  acomp(.)
   # Preserves the ratios between non-zero components
   cmultRepl(., output = "prop")
 

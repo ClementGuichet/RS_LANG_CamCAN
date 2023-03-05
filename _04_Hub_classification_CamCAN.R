@@ -198,115 +198,146 @@ Hub_classification_procedure <- function(filtering_scheme = NULL) {
     # YOUNG ----
     ############################################################################
     
-    PC_consensus <- as.data.frame(fromJSON("Young_PC_norm.json")) %>%
-      mutate(Subj_ID = rep(seq_len(167))) %>%
+    # PC_consensus <- as.data.frame(fromJSON("Young_PC_norm.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(167))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "PC_cons"
+    #   )
+    # 
+    # Within_module_z_consensus <- as.data.frame(fromJSON("Young_Wz.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(167))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "Within_module_z_cons"
+    #   )
+    # 
+    # nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
+    #   dplyr::select(-Region)
+    # 
+    # # Make sure dataframe is ordered identically to nodal_metrics
+    # data_full_thresholded <- data_full %>%
+    #   subset(threshold == "0.15") %>%
+    #   filter(Age_group == "Young") %>%
+    #   arrange(Subj_ID, Region)
+    # 
+    # data_bind_PC_Wz <- cbind(data_full_thresholded,
+    #                          PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
+    # )
+    # 
+    # data_young <- data_bind_PC_Wz
+    # 
+    # ############################################################################
+    # # MIDDLE ----
+    # ############################################################################
+    # 
+    # PC_consensus <- as.data.frame(fromJSON("Middle_PC_norm.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(201))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "PC_cons"
+    #   )
+    # 
+    # Within_module_z_consensus <- as.data.frame(fromJSON("Middle_Wz.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(201))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "Within_module_z_cons"
+    #   )
+    # 
+    # nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
+    #   dplyr::select(-Region)
+    # 
+    # # Make sure dataframe is ordered identically to nodal_metrics
+    # data_full_thresholded <- data_full %>%
+    #   subset(threshold == "0.15") %>%
+    #   filter(Age_group == "Middle") %>%
+    #   arrange(Subj_ID, Region)
+    # 
+    # data_bind_PC_Wz <- cbind(data_full_thresholded,
+    #                          PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
+    # )
+    # 
+    # data_middle <- data_bind_PC_Wz
+    # 
+    # ############################################################################
+    # # OLD ----
+    # ############################################################################
+    # 
+    # PC_consensus <- as.data.frame(fromJSON("Old_PC_norm.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(260))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "PC_cons"
+    #   )
+    # 
+    # Within_module_z_consensus <- as.data.frame(fromJSON("Old_Wz.json")) %>%
+    #   mutate(Subj_ID = rep(seq_len(260))) %>%
+    #   pivot_longer(
+    #     cols = !c("Subj_ID"),
+    #     names_to = "Region",
+    #     values_to = "Within_module_z_cons"
+    #   )
+    # 
+    # nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
+    #   dplyr::select(-Region)
+    # 
+    # # Make sure dataframe is ordered identically to nodal_metrics
+    # data_full_thresholded <- data_full %>%
+    #   subset(threshold == "0.15") %>%
+    #   filter(Age_group == "Old") %>%
+    #   arrange(Subj_ID, Region)
+    # 
+    # data_bind_PC_Wz <- cbind(data_full_thresholded,
+    #                          PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
+    # )
+    # 
+    # 
+    # data_old <- data_bind_PC_Wz
+    
+    
+    # All
+    PC_consensus <- as.data.frame(fromJSON("All_PC.json")) %>%
+      mutate(Subj_ID = rep(seq_len(628))) %>%
       pivot_longer(
         cols = !c("Subj_ID"),
         names_to = "Region",
         values_to = "PC_cons"
       )
-    
-    Within_module_z_consensus <- as.data.frame(fromJSON("Young_Wz.json")) %>%
-      mutate(Subj_ID = rep(seq_len(167))) %>%
+
+    Within_module_z_consensus <- as.data.frame(fromJSON("All_Wz.json")) %>%
+      mutate(Subj_ID = rep(seq_len(628))) %>%
       pivot_longer(
         cols = !c("Subj_ID"),
         names_to = "Region",
         values_to = "Within_module_z_cons"
       )
-    
+
     nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
       dplyr::select(-Region)
-    
+
     # Make sure dataframe is ordered identically to nodal_metrics
     data_full_thresholded <- data_full %>%
       subset(threshold == "0.15") %>%
-      filter(Age_group == "Young") %>%
       arrange(Subj_ID, Region)
-    
+
     data_bind_PC_Wz <- cbind(data_full_thresholded,
                              PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
     )
-    
-    data_young <- data_bind_PC_Wz 
-    
-    ############################################################################
-    # MIDDLE ----
-    ############################################################################
-    
-    PC_consensus <- as.data.frame(fromJSON("Middle_PC_norm.json")) %>% 
-      mutate(Subj_ID = rep(seq_len(201))) %>%
-      pivot_longer(
-        cols = !c("Subj_ID"),
-        names_to = "Region",
-        values_to = "PC_cons"
-      )
-    
-    Within_module_z_consensus <- as.data.frame(fromJSON("Middle_Wz.json")) %>%
-      mutate(Subj_ID = rep(seq_len(201))) %>%
-      pivot_longer(
-        cols = !c("Subj_ID"),
-        names_to = "Region",
-        values_to = "Within_module_z_cons"
-      )
-    
-    nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
-      dplyr::select(-Region)
-    
-    # Make sure dataframe is ordered identically to nodal_metrics
-    data_full_thresholded <- data_full %>%
-      subset(threshold == "0.15") %>%
-      filter(Age_group == "Middle") %>%
-      arrange(Subj_ID, Region)
-    
-    data_bind_PC_Wz <- cbind(data_full_thresholded,
-                             PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
-    )
-    
-    data_middle <- data_bind_PC_Wz
-    
-    ############################################################################
-    # OLD ----
-    ############################################################################
-    
-    PC_consensus <- as.data.frame(fromJSON("Old_PC_norm.json")) %>%
-      mutate(Subj_ID = rep(seq_len(260))) %>%
-      pivot_longer(
-        cols = !c("Subj_ID"),
-        names_to = "Region",
-        values_to = "PC_cons"
-      )
-    
-    Within_module_z_consensus <- as.data.frame(fromJSON("Old_Wz.json")) %>%
-      mutate(Subj_ID = rep(seq_len(260))) %>%
-      pivot_longer(
-        cols = !c("Subj_ID"),
-        names_to = "Region",
-        values_to = "Within_module_z_cons"
-      )
-    
-    nodal_metrics_cons <- cbind(PC_consensus, Within_module_z_cons = Within_module_z_consensus$Within_module_z_cons) %>%
-      dplyr::select(-Region)
-    
-    # Make sure dataframe is ordered identically to nodal_metrics
-    data_full_thresholded <- data_full %>%
-      subset(threshold == "0.15") %>%
-      filter(Age_group == "Old") %>%
-      arrange(Subj_ID, Region)
-    
-    data_bind_PC_Wz <- cbind(data_full_thresholded,
-                             PC_cons = nodal_metrics_cons$PC_cons, Within_module_z_cons = nodal_metrics_cons$Within_module_z_cons
-    )
-    
-    
-    data_old <- data_bind_PC_Wz
-    
     ############################################################################
     ############################################################################
     # Putting it all together ----
     ############################################################################
     ############################################################################
     
-    data_functional_role <<- rbind(data_young, data_middle, data_old) %>% 
+    data_functional_role <<- 
+      data_bind_PC_Wz %>% 
+      # rbind(data_young, data_middle, data_old) %>% 
       group_by(Subj_ID) %>% 
       mutate(zBT = as.numeric(scale(Betweenness))) %>%
       mutate(zFlow = as.numeric(scale(Flow_coeff))) %>%

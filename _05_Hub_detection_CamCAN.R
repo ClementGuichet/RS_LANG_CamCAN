@@ -82,7 +82,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       dplyr::select(Subj_ID, Eglob, Eloc) %>%
       group_by(Subj_ID) %>%
       summarize_at(vars(Eglob, Eloc), mean) %>%
-      mutate(Balance_eff = (Eloc - Eglob) / (Eloc + Eglob))
+      mutate(Balance_eff = (Eglob - Eloc) / (Eloc + Eglob))
     
     ################################################################################
     # Putting everything together
@@ -120,8 +120,6 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       ) %>% 
       group_by(Subj_ID, Metric_name) %>%
       group_split() %>%
-      # Choosing 20% to achieve a middle ground between too much versus too little regions
-      # Must have sufficient regions in each RSN for statistical analyses
       map_dfr(. %>% slice_max(Metric_value, n = 131 * percentage_hub_regions) %>%
                 mutate(rank = rep(seq(1:length(Region))))) %>%
       group_by(Subj_ID) %>%
@@ -187,7 +185,7 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
       Balance_eff = efficiencies_connectome$Balance_eff
     ) %>% 
       # Remove subject with fragmented graph
-      filter(Subj_ID %in% LLC_filter$Subj_ID) %>% 
+      # filter(Subj_ID %in% LLC_filter$Subj_ID) %>% 
       plyr::rename(c("gender_text" = "Gender"))
     
     # Final dataframe with each subject's hub regions and the RSNs -----
@@ -389,6 +387,6 @@ Hub_detection_procedure <- function(filtering_scheme = NULL, percentage_hub_regi
   }
 }
 
-Hub_detection_procedure("proportional", .2)
+Hub_detection_procedure("proportional", 1)
 ################################################################################
 

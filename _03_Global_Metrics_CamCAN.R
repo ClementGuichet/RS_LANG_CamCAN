@@ -9,7 +9,7 @@ data_full_per_subject_LLC <- merge(data_full_per_subject, LLC_threshold, by = "t
 
 # Evolution of Global metrics - what is the optimal threshold?
 evo <- data_full_per_subject_LLC %>%
-  group_by(threshold) %>%
+  group_by(threshold) %>% 
   summarise_at(vars(Eglob, Clustering_coeff_glob, Eloc, `Largest Connected Component`), funs(mean)) %>%
   pivot_longer(
     cols = !c("threshold"),
@@ -17,7 +17,7 @@ evo <- data_full_per_subject_LLC %>%
   )
 
 plotly::ggplotly(
-  evo %>%
+  evo %>% 
     ggplot(aes(threshold, value, color = Metrics)) +
     geom_line() +
     geom_point(size = 2) +
@@ -40,18 +40,17 @@ plotly::ggplotly(
     ggpubr::theme_pubclean()
 )
 
-
 # AMI for all threshold consensus clustering
-source("_NMI&AMI_functions.R")
-# Make sure this is indexed on 131 observations only
-data_AMI <- data_full_per_region %>% subset(threshold == "0.15")
-
-c <- AMI_func(factor(data_AMI$Consensus_vector_0.1), factor(data_AMI$Consensus_vector_0.15))
-d <- AMI_func(factor(data_AMI$Consensus_vector_0.12), factor(data_AMI$Consensus_vector_0.15))
-e <- AMI_func(factor(data_AMI$Consensus_vector_0.17), factor(data_AMI$Consensus_vector_0.15))
-f <- AMI_func(factor(data_AMI$Consensus_vector_0.2), factor(data_AMI$Consensus_vector_0.15))
-# Mean AMI with partitions at other thresholds
-(c + d + e + f) / 5
+# source("_NMI&AMI_functions.R")
+# # Make sure this is indexed on 131 observations only
+# data_AMI <- data_full_per_region %>% subset(threshold == "0.15")
+# 
+# c <- AMI_func(factor(data_AMI$Consensus_vector_0.1), factor(data_AMI$Consensus_vector_0.15))
+# d <- AMI_func(factor(data_AMI$Consensus_vector_0.12), factor(data_AMI$Consensus_vector_0.15))
+# e <- AMI_func(factor(data_AMI$Consensus_vector_0.17), factor(data_AMI$Consensus_vector_0.15))
+# f <- AMI_func(factor(data_AMI$Consensus_vector_0.2), factor(data_AMI$Consensus_vector_0.15))
+# # Mean AMI with partitions at other thresholds
+# (c + d + e + f) / 5
 
 # 75% of AMI between the affiliation vectors at different thresholds
 
